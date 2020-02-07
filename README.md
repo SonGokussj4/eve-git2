@@ -3,7 +3,7 @@
 > Updated eve-git utility to ease working with git/gitea
 
 ## Help
-```
+```R
 usage: eve-git.py [-h] [--version] [--no-groups] [--no-color] [--img username]
                   [--tel username [username ...]] [--id username [username ...]]
                   [--all] [--write-db]
@@ -34,7 +34,7 @@ optional arguments:
 
 ## Installation
 
-```
+```R
 python3.7eve -m venv .env
 source .env/bin/activate
 pip install update pip
@@ -43,6 +43,6 @@ deactivate
 ```
 
 ## Running
-```
+```Bash
 ./run.sh
 ```
