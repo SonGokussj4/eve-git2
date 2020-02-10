@@ -18,7 +18,8 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
     """ArgParse custom formatter that has LONGER LINES and RAW DescriptionHelp formatting, shows default values."""
 
     def __init__(self, prog):
-        super(CustomHelpFormatter, self).__init__(prog, max_help_position=80, width=80)
+        super(CustomHelpFormatter, self).__init__(
+            prog, max_help_position=80, width=80)
 
 
 # =================================
@@ -37,7 +38,8 @@ with more lines
 or examples
 >
 """
-    parser.add_argument('--version', action='version', version=f'%(prog)s: {__version__}')
+    parser.add_argument('--version', action='version',
+                        version=f'%(prog)s: {__version__}')
 
     parser.add_argument('--no-groups', dest='no_groups', action='store_true',
                         help="Optional... <Don't show groups>")
