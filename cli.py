@@ -65,4 +65,28 @@ or examples
     group.add_argument('--write-db', dest='write_db', action='store_true',
                        help='Developer only... <Save people into Pickled database>')
 
+    group.add_argument('--list', dest='list_repo', metavar='username',
+                       help='Show <username> repositories.')
+
+    group.add_argument('--info', dest='info', action='store_true',
+                       help='Show one-line description of <project_name>')
+
+    group.add_argument('--description', dest='description', action='store_true',
+                       help='Edit description file of <project_name>')
+
+    group.add_argument('--create', dest='create', action='store_true',
+                       help='Create new remote <project_name>')
+
+    group.add_argument('--open', dest='open', action='store_true',
+                       help='Clone existing <project_name> into current folder')
+
+    group.add_argument('--deploy', dest='deploy', action='store_true',
+                       help='Deploy <project_name> to folder')
+
+    group.add_argument('--remove', dest='remove', action='store_true',
+                       help='Remove remoted <project_name>')
+
+    group.add_argument('--transfer', dest='transfer', action='store_true',
+                       help='Transfer <project_name> to organization')
+
     return parser
