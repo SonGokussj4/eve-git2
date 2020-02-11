@@ -67,7 +67,7 @@ or examples
     group.add_argument('--write-db', dest='write_db', action='store_true',
                        help='Developer only... <Save people into Pickled database>')
 
-    group.add_argument('--list', dest='list_repo', metavar='username',
+    group.add_argument('--list', dest='list_repo', action='store_true',
                        help='Show <username> repositories.')
 
     group.add_argument('--info', dest='info', action='store_true',
