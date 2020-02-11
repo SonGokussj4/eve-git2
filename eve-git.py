@@ -45,20 +45,41 @@ def create_repo():
     # description = input('Repository description: ')
     reponame = "Test"
     description = "Test"
-    private = False
+    private = True
     print("Server: ", SERVER)
     print("TOKEN: ", GITEA_TOKEN)
 
     repo_data = {'name': reponame, 'description': description, 'private': private}
+    repo_headers = {'accept': 'application/json',
+               'content-type': 'application/json'}
 
     res = requests.post(
-        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}", data=repo_data)
-
+        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}", headers=repo_headers, json=repo_data)
+    print(res)
 
 def transfer_repo():
     """To tranfer repo to some organization """
     print("Transfer")
 
+    # res = requests.get(f"{SERVER}/api/v1/users/ptinka/repos")
+    # data = json.loads(res.content)
+    # for dat in data:
+    #     print(dat["html_url"])
+
+    # reponame = "Test2"
+    # description = "Test3"
+    # private = False
+    # organization = "P135"
+    # print("Server: ", SERVER)
+    # print("TOKEN: ", GITEA_TOKEN)
+    # repo_data = {'username': organization, 'name': reponame,
+    #              'description': description, 'private': private}
+    # repo_headers = {'accept': 'application/json',
+    #                 'content-type': 'application/json'}
+
+    # res = requests.post(
+    #     f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}", headers=repo_headers, json=repo_data)
+    # print(res)
 
 def list_repo():
     """ Function for listing directories."""
