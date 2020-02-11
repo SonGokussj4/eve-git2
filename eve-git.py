@@ -22,7 +22,7 @@ import requests
 # =           CONSTANTS           =
 # =================================
 CURDIR = str(Path(__file__).resolve().parent)
-server = "http://gitea.avalon.konstru.evektor.cz"
+SERVER = "http://gitea.avalon.konstru.evektor.cz"
 GITEA_TOKEN = os.environ['GITEA_TOKEN']
 
 
@@ -46,18 +46,13 @@ def create_repo():
     reponame = "Test"
     description = "Test"
     private = False
-    print("Server: ", server)
+    print("Server: ", SERVER)
     print("TOKEN: ", GITEA_TOKEN)
 
-    command = f"""curl -X post "{server}/api/v1/user/repos?access_token={GITEA_TOKEN}" \
-        -H "accept: application/json" \
-        -H "content-type: application/json" \
-        -d "\"name\":\"{reponame}\", \
-            \"description\": \"{description}\", \
-            \"private":{private}"
-            """
+    repo_data = {'name': reponame, 'description': description, 'private': private}
 
-    os.system(command)
+    res = requests.post(
+        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}", data=repo_data)
 
 
 def transfer_repo():
@@ -79,7 +74,7 @@ def list_repo():
     # res = sp.check_output(shlex.split(command))
     # print(f"res output: {res}")
 
-    res = requests.get(f"{server}/api/v1/users/ptinka/repos")
+    res = requests.get(f"{SERVER}/api/v1/users/ptinka/repos")
     data = json.loads(res.content)
     for dat in data:
         print(dat["html_url"])
