@@ -100,7 +100,12 @@ def list_repo():
     for dat in data:
         print(dat["html_url"])
 
+def remove_repo():
+    reponame = "Test"
 
+    res = requests.delete(
+        f"{SERVER}/api/v1/repos/ptinka/{reponame}?access_token={GITEA_TOKEN}")
+    print(res)
 
 
 # ====================================
@@ -118,9 +123,12 @@ if __name__ == '__main__':
         sys.exit()
     elif args.transfer:
         transfer_repo()
-        sys.exit
+        sys.exit()
     elif args.list_repo:
         list_repo()
+        sys.exit()
+    elif args.remove:
+        remove_repo()
         sys.exit()
 
     user = Person()
