@@ -70,6 +70,9 @@ or examples
     group.add_argument('--list', dest='list_repo', action='store_true',
                        help='Show <username> repositories.')
 
+    group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
+                        help='Show <organization> repositories.')
+
     group.add_argument('--info', dest='info', action='store_true',
                        help='Show one-line description of <project_name>')
 
@@ -77,6 +80,9 @@ or examples
                        help='Edit description file of <project_name>')
 
     group.add_argument('--create', dest='create', action='store_true',
+                       help='Create new remote <project_name>')
+
+    group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
                        help='Create new remote <project_name>')
 
     group.add_argument('--open', dest='open', action='store_true',
