@@ -18,11 +18,16 @@ import subprocess as sp
 import shlex
 import requests
 
+# Pip Libs
+import git
+from columnar import columnar
+
 
 # =================================
 # =           CONSTANTS           =
 # =================================
-CURDIR = str(Path(__file__).resolve().parent)
+SCRIPTDIR = Path(__file__).resolve().parent
+CURDIR = Path('.')
 SERVER = "http://gitea.avalon.konstru.evektor.cz"
 GITEA_TOKEN = os.environ['GITEA_TOKEN']
 
@@ -113,13 +118,60 @@ def list_org_repo(organization):
 
 
 def list_repo():
-    """ Function for listing directories."""
-
+    """Function for listing directories."""
     # res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
     res = requests.get(f"{SERVER}/api/v1/users/jverner/repos")
     data = json.loads(res.content)
     for dat in data:
         print(dat["html_url"])
+
+
+def clone_repo(args_clone):
+    """Clone repo into current directory."""
+    print("DEBUG: args_clone:", args_clone)
+    target_dir = CURDIR.resolve()
+    if len(args_clone) == 2:
+        reponame, username = args_clone
+        res = git.Git(target_dir).clone(f"{SERVER}/{username}/{reponame}")
+        print(res)
+        print("DONE")
+
+    elif len(args_clone) == 1:
+        reponame = args_clone[0]
+        print("Vyhledat...")
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        data = json.loads(res.content)
+
+        # Check if there was a good response
+        if not data.get('ok'):
+            print(f"Shit... Data not acquired... {data}")
+            sys.exit()
+
+        # Data acquired, list all found repos
+        print("A jaky by to jako mel byt.........")
+        print()
+        headers = ('id', 'repository', 'user', 'description')
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']] for item in data.get('data')]
+        tbl = columnar(results, headers, no_borders=True)
+        print(tbl)
+        answer = input("Jaky teda? ID: ")
+        print(f"Klonuji id: {int(answer)}")
+        # TODO: Ne napevno, ale vzit to z toho results a prefiltrovat pres ID. Nebo mozna vytvorit dict...
+        clone_repo(['install_beta_suite', 'jverner'])
+
+        # res = requests.get(f"{SERVER}/api/v1/repositories/{answer}")
+        # print("DEBUG: res:", res)
+        # data = json.loads(res.content)
+        # if not data.get('ok'):
+            # print(f"Shit... Data not acquired... {data}")
+            # sys.exit()
+
+        # Get url for clone:
+        # print(data)
+
+
+
+
 
 
 def remove_repo(reponame, user=None):
@@ -152,7 +204,9 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
+    print("--------------------------------------------------------------------------------")
     print("DEBUG: args:", args)
+    print("--------------------------------------------------------------------------------")
 
     # In case of no input, show help
     if not any(vars(args).values()):
@@ -164,18 +218,28 @@ if __name__ == '__main__':
     if args.create:
         create_repo()
         sys.exit()
+
+    elif args.clone:
+        print(f"Clonning: {args.clone}")
+        clone_repo(args.clone)
+        sys.exit()
+
     elif args.transfer:
         transfer_repo()
         sys.exit()
+
     elif args.list_repo:
         list_repo()
         sys.exit()
+
     elif args.remove:
         remove_repo()
         sys.exit()
+
     elif args.create_org_repo:
         create_repo_org()
         sys.exit()
+
     elif args.list_org_repo:
         list_org_repo(args.list_org_repo)
         sys.exit()
