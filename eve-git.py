@@ -152,6 +152,15 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
+    print("DEBUG: args:", args)
+
+    # In case of no input, show help
+    if not any(vars(args).values()):
+        print("ERROR: No arguments... Showing help.")
+        print()
+        parser.print_help()
+        sys.exit()
+
     if args.create:
         create_repo()
         sys.exit()

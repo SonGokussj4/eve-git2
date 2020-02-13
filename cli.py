@@ -71,7 +71,7 @@ or examples
                        help='Show <username> repositories.')
 
     group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
-                        help='Show <organization> repositories.')
+                       help='Show <organization> repositories.')
 
     group.add_argument('--info', dest='info', action='store_true',
                        help='Show one-line description of <project_name>')
@@ -85,8 +85,8 @@ or examples
     group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
                        help='Create new remote <project_name>')
 
-    group.add_argument('--open', dest='open', action='store_true',
-                       help='Clone existing <project_name> into current folder')
+    group.add_argument('--clone', dest='clone', nargs=1, type=str, metavar='project_name',
+                       help='Clone existing <project_name> into current directory')
 
     group.add_argument('--deploy', dest='deploy', action='store_true',
                        help='Deploy <project_name> to folder')
