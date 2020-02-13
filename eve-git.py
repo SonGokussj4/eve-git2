@@ -38,18 +38,30 @@ class Person:
 # =           FUNCTIONS           =
 # =================================
 
-def create_repo():
+# TODO: zprovoznit kdyz nezada reponame ani description
+# TODO: Kdyz se do repo_data da auto_init=true, haze to chybu <response 500>
+# TODO: Pri vytvoreni vytvorit i readme a prazdny gitignore
+def create_repo(reponame=None, description=None):
 
-    # reponame = input('Repository name: ')
-    # description = input('Repository description: ')
-    reponame = "Test"
-    description = "For testing..."
+    repo = input(f'Repository name [{reponame}]: ')
+    desc = input(f'Repository description [{description}]: ')
+    if repo == '':
+        repo = reponame
+    if desc == '':
+        desc = description
     private = False
-    print("Server: ", SERVER)
-    print("TOKEN: ", GITEA_TOKEN)
 
-    repo_data = {'name': reponame,
-                 'description': description, 'private': private}
+    res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
+    data = json.loads(res.content)
+    check_repo = [rep['name'] for rep in data]
+    if repo in check_repo:
+        print(f'Name of repository "{repo}" already exists.')
+        return
+    # sys.exit()
+
+    repo_data = {'auto_init': True, 'name': repo, 'readme': 'default',
+                 'description': desc, 'private': private}
+
     repo_headers = {'accept': 'application/json',
                     'content-type': 'application/json'}
 
@@ -180,7 +192,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if args.create:
-        create_repo()
+        if len(args.create) == 2:
+            create_repo(args.create[0], args.create[1])
+        else:
+            create_repo()
         sys.exit()
     # elif args.transfer:
     #     transfer_repo()
@@ -193,8 +208,8 @@ if __name__ == '__main__':
             remove_repo(args.remove[0], args.remove[1])
         else:
             remove_repo(args.remove[0])
-
         sys.exit()
+
     elif args.create_org_repo:
         create_repo_org()
         sys.exit()

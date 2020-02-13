@@ -79,8 +79,9 @@ or examples
     group.add_argument('--description', dest='description', action='store_true',
                        help='Edit description file of <project_name>')
 
-    group.add_argument('--create', dest='create', action='store_true',
-                       help='Create new remote <project_name>')
+    group.add_argument('--create', dest='create', metavar='project_name',
+                       nargs=2, action='store',
+                       help='Create new remote <project_name>, <description>')
 
     group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
                        help='Create new remote <project_name>')
@@ -91,7 +92,8 @@ or examples
     group.add_argument('--deploy', dest='deploy',action='store_true',
                        help='Deploy <project_name> to folder')
 
-    group.add_argument('--remove', dest='remove', metavar='project_name', nargs='+', type=str,
+    group.add_argument('--remove', dest='remove', metavar='project_name',
+                       nargs='+', type=str,
                        help='Remove remoted <project_name>')
 
     group.add_argument('--transfer', dest='transfer', action='store_true',
