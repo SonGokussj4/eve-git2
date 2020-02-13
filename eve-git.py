@@ -156,12 +156,12 @@ def clone_repo(args_clone):
         print(tbl)
 
         answer = input("Enter repo ID: ")
-        print(f"Clonning ID: {answer}")
+        print(f"[ INFO ] Clonning ID: {answer}")
 
         # Get the right repo by it's ID
         repo_to_clone = [ls for ls in results if ls[0] == answer]
         if len(repo_to_clone) != 1:
-            print(f"[ ERROR ] len(repo_to_clone) != 1... That's weird... it's: {len(repo_to_clone)}")
+            print(f"[ ERROR ] Beware! len(repo_to_clone) != 1... That's weird... it's: {len(repo_to_clone)}")
             sys.exit()
 
         # with repo_to_clone[0] as rep:
