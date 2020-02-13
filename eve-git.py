@@ -121,15 +121,21 @@ def list_repo():
 
 def remove_repo(reponame, user=None):
     """Remove repository from gitea """
+    repo_headers = {'accept': 'application/json'}
+    res = requests.get(f"{SERVER}/api/v1/users/search", headers=repo_headers)
+    data = json.loads(res.content)['data']
+    users = [login['login'] for login in data]
 
     # If user give two values(reponame, user), remove this
     if user:
+        if user not in users:
+            print(f'User "{user}" not found.')
+            return
         res = requests.delete(
             f"{SERVER}/api/v1/repos/{user}/{reponame}?access_token={GITEA_TOKEN}")
         # print(res)
     else:
         # Search repositories
-        repo_headers = {'accept': 'application/json'}
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}",
                            headers=repo_headers)
         data = json.loads(res.content)
@@ -147,7 +153,7 @@ def remove_repo(reponame, user=None):
             list_to_table.append([repository, username, description])
         # create table
         headers = ['repository', 'user', 'description']
-        table = columnar(list_to_table, headers, no_borders=False)
+        table = columnar(list_to_table, headers, no_borders=True)
         print(table)
 
         values = input("Specify [repo] [user]: ").split(' ')
@@ -160,7 +166,7 @@ def remove_repo(reponame, user=None):
     if res.ok:
         print('Removing repository was successfull.')
     else:
-        print('Repository or user not found.')
+        print('Repository not found.')
 
 
 # ====================================
