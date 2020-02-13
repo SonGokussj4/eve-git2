@@ -130,48 +130,47 @@ def clone_repo(args_clone):
     """Clone repo into current directory."""
     print("DEBUG: args_clone:", args_clone)
     target_dir = CURDIR.resolve()
+
+    # User input: --clone reponame username
     if len(args_clone) == 2:
         reponame, username = args_clone
         res = git.Git(target_dir).clone(f"{SERVER}/{username}/{reponame}")
-        print(res)
-        print("DONE")
+        print("[ INFO ] DONE")
 
+    # User input: --clone reponame
     elif len(args_clone) == 1:
         reponame = args_clone[0]
-        print("Vyhledat...")
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
         data = json.loads(res.content)
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"Shit... Data not acquired... {data}")
+            print(f"[ ERROR ] Shit... Data not acquired... {data}")
             sys.exit()
 
         # Data acquired, list all found repos
-        print("A jaky by to jako mel byt.........")
-        print()
         headers = ('id', 'repository', 'user', 'description')
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']] for item in data.get('data')]
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                   for item in data.get('data')]
         tbl = columnar(results, headers, no_borders=True)
         print(tbl)
-        answer = input("Jaky teda? ID: ")
-        print(f"Klonuji id: {int(answer)}")
-        # TODO: Ne napevno, ale vzit to z toho results a prefiltrovat pres ID. Nebo mozna vytvorit dict...
-        clone_repo(['install_beta_suite', 'jverner'])
 
-        # res = requests.get(f"{SERVER}/api/v1/repositories/{answer}")
-        # print("DEBUG: res:", res)
-        # data = json.loads(res.content)
-        # if not data.get('ok'):
-            # print(f"Shit... Data not acquired... {data}")
-            # sys.exit()
+        answer = input("Enter repo ID: ")
+        print(f"Clonning ID: {answer}")
 
-        # Get url for clone:
-        # print(data)
+        # Get the right repo by it's ID
+        repo_to_clone = [ls for ls in results if ls[0] == answer]
+        if len(repo_to_clone) != 1:
+            print(f"[ ERROR ] len(repo_to_clone) != 1... That's weird... it's: {len(repo_to_clone)}")
+            sys.exit()
 
+        # with repo_to_clone[0] as rep:
+        #     print("DEBUG: rep:", rep)
+        #     repoid, reponame, username, description = rep
 
-
-
+        reponame, username = repo_to_clone[0][1], repo_to_clone[0][2]
+        clone_repo([reponame, username])
+        return 0
 
 
 def remove_repo(reponame, user=None):
