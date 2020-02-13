@@ -14,10 +14,8 @@ import json
 import getpass
 from pathlib import Path
 from dataclasses import dataclass
-import subprocess as sp
-import shlex
 import requests
-
+from columnar import columnar
 
 # =================================
 # =           CONSTANTS           =
@@ -45,7 +43,7 @@ def create_repo():
     # reponame = input('Repository name: ')
     # description = input('Repository description: ')
     reponame = "Test"
-    description = "Test"
+    description = "For testing..."
     private = False
     print("Server: ", SERVER)
     print("TOKEN: ", GITEA_TOKEN)
@@ -56,7 +54,8 @@ def create_repo():
                     'content-type': 'application/json'}
 
     res = requests.post(
-        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}", headers=repo_headers, json=repo_data)
+        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
+        headers=repo_headers, json=repo_data)
     print(res)
 
 
@@ -84,26 +83,25 @@ def create_repo_org():
 # def transfer_repo():
 #     """To tranfer repo to some organization """
 
-    # reponame = "Test"
-    # description = "Test3"
-    # private = False
-    # organization = "P135"
-    # print("Server: ", SERVER)
-    # print("TOKEN: ", GITEA_TOKEN)
+#     reponame = "Test"
+#     description = "Test3"
+#     private = False
+#     organization = "P135"
+#     print("Server: ", SERVER)
+#     print("TOKEN: ", GITEA_TOKEN)
 
-    # repo_data = {'new_owner': organization}
-    # # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
-    # #                 'Authorization': 'token ACCESS_TOKEN'}
-    # res = requests.post(
-    #     f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
-    #     headers=repo_headers, json=repo_data)
-    # print(res)
-    # print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
+#     repo_data = {'new_owner': organization}
+#     # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
+#     #                 'Authorization': 'token ACCESS_TOKEN'}
+#     res = requests.post(
+#         f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
+#         headers=repo_headers, json=repo_data)
+#     print(res)
+#     print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
 
 
 def list_org_repo(organization):
     # List of organization repositories
-    # organization = "P135"
     res = requests.get(f"{SERVER}/api/v1/orgs/{organization}/repos")
     print(res)
     data = json.loads(res.content)
@@ -115,31 +113,54 @@ def list_org_repo(organization):
 def list_repo():
     """ Function for listing directories."""
 
-    # res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
-    res = requests.get(f"{SERVER}/api/v1/users/jverner/repos")
+    res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
     data = json.loads(res.content)
     for dat in data:
         print(dat["html_url"])
 
 
 def remove_repo(reponame, user=None):
-    # reponame = "Test"
-    # If user:
-    #   requests delete repo
-    # If not:
-    #
-    #   Find all repositories with the same name, return in format:
-    #        test jverner   description (max 80 chars)
-    #        test ptinka    description (max 80 chars)
-    # Clovek pak zada:
-    # Specify [repo] [user]: test ptinka
-    # DELETE
+    """Remove repository from gitea """
 
-    # Ask which repo to delete
+    # If user give two values(reponame, user), remove this
+    if user:
+        res = requests.delete(
+            f"{SERVER}/api/v1/repos/{user}/{reponame}?access_token={GITEA_TOKEN}")
+        # print(res)
+    else:
+        # Search repositories
+        repo_headers = {'accept': 'application/json'}
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}",
+                           headers=repo_headers)
+        data = json.loads(res.content)
+        # get list of dicts
+        for key, value in data.items():
+            list_of_dict = value
+        if list_of_dict == []:
+            print("Searching repository doesn't exist.")
+            return
+        list_to_table = []
+        for char in list_of_dict:
+            repository = char["name"]
+            username = (char["owner"])["login"]
+            description = char["description"]
+            list_to_table.append([repository, username, description])
+        # create table
+        headers = ['repository', 'user', 'description']
+        table = columnar(list_to_table, headers, no_borders=False)
+        print(table)
 
-    res = requests.delete(
-        f"{SERVER}/api/v1/repos/ptinka/{reponame}?access_token={GITEA_TOKEN}")
-    print(res)
+        values = input("Specify [repo] [user]: ").split(' ')
+        user = values[1]
+        repository = values[0]
+        res = requests.delete(
+            f"{SERVER}/api/v1/repos/{user}/{repository}?access_token={GITEA_TOKEN}")
+        # print(res)
+
+    if res.ok:
+        print('Removing repository was successfull.')
+    else:
+        print('Repository or user not found.')
 
 
 # ====================================
@@ -155,14 +176,18 @@ if __name__ == '__main__':
     if args.create:
         create_repo()
         sys.exit()
-    elif args.transfer:
-        transfer_repo()
-        sys.exit()
+    # elif args.transfer:
+    #     transfer_repo()
+    #     sys.exit()
     elif args.list_repo:
         list_repo()
         sys.exit()
     elif args.remove:
-        remove_repo()
+        if len(args.remove) == 2:
+            remove_repo(args.remove[0], args.remove[1])
+        else:
+            remove_repo(args.remove[0])
+
         sys.exit()
     elif args.create_org_repo:
         create_repo_org()
