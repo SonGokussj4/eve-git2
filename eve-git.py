@@ -50,33 +50,38 @@ def create_repo(reponame=None, description=None):
 
     repo = input(f'Repository name [{reponame}]: ')
     desc = input(f'Repository description [{description}]: ')
+
+    # repo = reponame if not repo else repo
+    # desc = description if not desc else desc
+
     if repo == '':
         repo = reponame
     if desc == '':
         desc = description
-    private = False
 
-    res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
+    username = getpass.getuser()
+
+    res = requests.get(f"{SERVER}/api/v1/users/{username}/repos")
     data = json.loads(res.content)
+    # TODO if data['ok'] not ok... error hlaska
+
+    # TODO wtf is this doing.... :-)
     check_repo = [rep['name'] for rep in data]
     if repo in check_repo:
         print(f'Name of repository "{repo}" already exists.')
         return
-    # sys.exit()
 
+    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
     repo_data = {'auto_init': True, 'name': repo, 'readme': 'default',
-                 'description': desc, 'private': private}
+                 'description': desc, 'private': False}
 
-    repo_headers = {'accept': 'application/json',
-                    'content-type': 'application/json'}
-
-    res = requests.post(
-        f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
-        headers=repo_headers, json=repo_data)
+    res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
+                        headers=repo_headers, json=repo_data)
     print(res)
+    # TODO is this OK? If yes, don't tell RES, tell OK or DONE :-)
 
 
-def create_repo_org():
+def create_repo_org(reponame=None, organization=None, description=None):
     # Create repository in organization
 
     # reponame = input('Repository name: ')
@@ -85,9 +90,8 @@ def create_repo_org():
     reponame = "Test"
     organization = "P135"
     description = "Test"
-    private = False
     repo_data = {'name': reponame,
-                 'description': description, 'private': private}
+                 'description': description, 'private': False}
     repo_headers = {'content-type': 'application/json',
                     'Authorization': 'token ACCESS_TOKEN'}
     res = requests.post(
@@ -221,8 +225,7 @@ def remove_repo(reponame, user=None):
         print(table)
 
         values = input("Specify [repo] [user]: ").split(' ')
-        user = values[1]
-        repository = values[0]
+        repository, user = values
         res = requests.delete(
             f"{SERVER}/api/v1/repos/{user}/{repository}?access_token={GITEA_TOKEN}")
         # print(res)
@@ -267,7 +270,9 @@ if __name__ == '__main__':
         sys.exit()
 
     elif args.transfer:
-        transfer_repo()
+        print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
+        print("[ INFO ] Exitting now...")
+        # transfer_repo()
         sys.exit()
 
     # elif args.transfer:
@@ -285,7 +290,7 @@ if __name__ == '__main__':
         sys.exit()
 
     elif args.create_org_repo:
-        create_repo_org()
+        create_repo_org(args.create_org_repo)
         sys.exit()
 
     elif args.list_org_repo:
