@@ -3,7 +3,7 @@
 > Updated eve-git utility to ease working with git/gitea
 
 ## Help
-```R
+```Bash
 usage: eve-git.py [-h] [--version] [--no-groups] [--no-color] [--img username]
                   [--tel username [username ...]] [--id username [username ...]]
                   [--all] [--write-db]

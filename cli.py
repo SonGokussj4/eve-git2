@@ -86,8 +86,9 @@ or examples
     group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
                        help='Create new remote <project_name>')
 
-    group.add_argument('--open', dest='open', action='store_true',
-                       help='Clone existing <project_name> into current folder')
+    group.add_argument('--clone', dest='clone', nargs='+', type=str, action=required_length(1, 2),
+                       metavar=('project_name', 'user'),
+                       help='Clone existing <project_name> into current directory')
 
     group.add_argument('--deploy', dest='deploy',action='store_true',
                        help='Deploy <project_name> to folder')
@@ -100,3 +101,14 @@ or examples
                        help='Transfer <project_name> to organization')
 
     return parser
+
+
+def required_length(nmin, nmax):
+    class RequiredLength(argparse.Action):
+        def __call__(self, parser, args, values, option_string=None):
+            if not nmin <= len(values) <= nmax:
+                msg = 'argument "{f}" requires between {nmin} and {nmax} arguments'.format(
+                    f=self.dest, nmin=nmin, nmax=nmax)
+                raise argparse.ArgumentTypeError(msg)
+            setattr(args, self.dest, values)
+    return RequiredLength

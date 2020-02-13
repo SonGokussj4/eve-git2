@@ -15,12 +15,17 @@ import getpass
 from pathlib import Path
 from dataclasses import dataclass
 import requests
+
+# Pip Libs
+import git
 from columnar import columnar
+
 
 # =================================
 # =           CONSTANTS           =
 # =================================
-CURDIR = str(Path(__file__).resolve().parent)
+SCRIPTDIR = Path(__file__).resolve().parent
+CURDIR = Path('.')
 SERVER = "http://gitea.avalon.konstru.evektor.cz"
 GITEA_TOKEN = os.environ['GITEA_TOKEN']
 
@@ -131,6 +136,53 @@ def list_repo():
         print(dat["html_url"])
 
 
+def clone_repo(args_clone):
+    """Clone repo into current directory."""
+    print("DEBUG: args_clone:", args_clone)
+    target_dir = CURDIR.resolve()
+
+    # User input: --clone reponame username
+    if len(args_clone) == 2:
+        reponame, username = args_clone
+        res = git.Git(target_dir).clone(f"{SERVER}/{username}/{reponame}")
+        print("[ INFO ] DONE")
+
+    # User input: --clone reponame
+    elif len(args_clone) == 1:
+        reponame = args_clone[0]
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        data = json.loads(res.content)
+
+        # Check if there was a good response
+        if not data.get('ok'):
+            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            sys.exit()
+
+        # Data acquired, list all found repos
+        headers = ('id', 'repository', 'user', 'description')
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                   for item in data.get('data')]
+        tbl = columnar(results, headers, no_borders=True)
+        print(tbl)
+
+        answer = input("Enter repo ID: ")
+        print(f"[ INFO ] Clonning ID: {answer}")
+
+        # Get the right repo by it's ID
+        repo_to_clone = [ls for ls in results if ls[0] == answer]
+        if len(repo_to_clone) != 1:
+            print(f"[ ERROR ] Beware! len(repo_to_clone) != 1... That's weird... it's: {len(repo_to_clone)}")
+            sys.exit()
+
+        # with repo_to_clone[0] as rep:
+        #     print("DEBUG: rep:", rep)
+        #     repoid, reponame, username, description = rep
+
+        reponame, username = repo_to_clone[0][1], repo_to_clone[0][2]
+        clone_repo([reponame, username])
+        return 0
+
+
 def remove_repo(reponame, user=None):
     """Remove repository from gitea """
     repo_headers = {'accept': 'application/json'}
@@ -191,18 +243,40 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
+    print("--------------------------------------------------------------------------------")
+    print("DEBUG: args:", args)
+    print("--------------------------------------------------------------------------------")
+
+    # In case of no input, show help
+    if not any(vars(args).values()):
+        print("ERROR: No arguments... Showing help.")
+        print()
+        parser.print_help()
+        sys.exit()
+
     if args.create:
         if len(args.create) == 2:
             create_repo(args.create[0], args.create[1])
         else:
             create_repo()
         sys.exit()
+
+    elif args.clone:
+        print(f"Clonning: {args.clone}")
+        clone_repo(args.clone)
+        sys.exit()
+
+    elif args.transfer:
+        transfer_repo()
+        sys.exit()
+
     # elif args.transfer:
     #     transfer_repo()
     #     sys.exit()
     elif args.list_repo:
         list_repo()
         sys.exit()
+
     elif args.remove:
         if len(args.remove) == 2:
             remove_repo(args.remove[0], args.remove[1])
@@ -213,6 +287,7 @@ if __name__ == '__main__':
     elif args.create_org_repo:
         create_repo_org()
         sys.exit()
+
     elif args.list_org_repo:
         list_org_repo(args.list_org_repo)
         sys.exit()
