@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 """<DESCRIPTION OF THE PROGRAM>"""
 
+# TODO Prepracovat toto vsechno (dlouhodoby TODO) do Classy...
+
 # =================================
 # =           LIBRARIES           =
 # =================================
@@ -13,12 +15,20 @@ import sys
 import json
 import getpass
 from pathlib import Path
-from dataclasses import dataclass
+# from dataclasses import dataclass
 import requests
 
 # Pip Libs
 import git
 from columnar import columnar
+
+# You have to run this script with python >= 3.7
+if sys.version_info.major != 3:
+    print("[ ERROR ] Hell NO! You're using Python2!! That's not cool man...")
+    sys.exit()
+if sys.version_info.minor <= 6:
+    print("[ ERROR ] Nah... Your Python version have to be at least 3.7. Sorry")
+    sys.exit()
 
 
 # =================================
@@ -27,16 +37,20 @@ from columnar import columnar
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = "http://gitea.avalon.konstru.evektor.cz"
-GITEA_TOKEN = os.environ['GITEA_TOKEN']
+try:
+    GITEA_TOKEN = os.environ['GITEA_TOKEN']
+except KeyError:
+    print("[ WARNING ] You DON'T have environment variable GITEA_TOKEN in your ~/.bashrc. Or Exported.")
+    print("[ WARNING ] You CAN list, search and clone repositories but NOT create, deploy, transfer, etc...")
 
 
 # ===============================
 # =           CLASSES           =
 # ===============================
-@dataclass
-class Person:
-    name: str = ''
-    age: int = 0
+# @dataclass
+# class Person:
+#     name: str = ''
+#     age: int = 0
 
 
 # =================================
@@ -297,10 +311,10 @@ if __name__ == '__main__':
         list_org_repo(args.list_org_repo)
         sys.exit()
 
-    user = Person()
-    user.name = 'Jan Verner'
-    user.age = 99
-    print("DEBUG: user:", user)
+    # user = Person()
+    # user.name = 'Jan Verner'
+    # user.age = 99
+    # print("DEBUG: user:", user)
 
-    user2 = Person('Petr Tinka', 99)
-    print("DEBUG: user2:", user2)
+    # user2 = Person('Petr Tinka', 99)
+    # print("DEBUG: user2:", user2)
