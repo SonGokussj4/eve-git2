@@ -90,7 +90,7 @@ or examples
                        metavar=('project_name', 'user'),
                        help='Clone existing <project_name> into current directory')
 
-    group.add_argument('--deploy', dest='deploy',action='store_true',
+    group.add_argument('--deploy', dest='deploy', action='store_true',
                        help='Deploy <project_name> to folder')
 
     group.add_argument('--remove', dest='remove', metavar='project_name',

@@ -19,8 +19,10 @@ from pathlib import Path
 import requests
 
 # Pip Libs
-import git
-from columnar import columnar
+from git import Repo, RemoteProgress  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
+from columnar import columnar  # https://pypi.org/project/Columnar/
+from colorama import Fore  # https://pypi.org/project/colorama/
+from tqdm import tqdm  # https://pypi.org/project/tqdm/
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
@@ -47,6 +49,54 @@ except KeyError:
 # ===============================
 # =           CLASSES           =
 # ===============================
+class Progress(RemoteProgress):
+    """Show ProgressBar when clonning remote repo.
+
+    Original code:
+        https://github.com/hooyao/github-org-backup-tool/blob/master/utils.py
+    """
+
+    pbar_dict = dict()
+    last_pbar = None
+
+    last_op_code = None
+    last_pos = None
+    op_names = {RemoteProgress.COUNTING: 'Counting objects',
+                RemoteProgress.COMPRESSING: 'Compressing objects',
+                RemoteProgress.WRITING: 'Writing objects',
+                RemoteProgress.RECEIVING: 'Receiving objects',
+                RemoteProgress.RESOLVING: 'Resolving deltas',
+                RemoteProgress.FINDING_SOURCES: 'Finding sources',
+                RemoteProgress.CHECKING_OUT: 'Checking out files'}
+    max_msg_len = 0
+    for i, (key, value) in enumerate(op_names.items()):
+        if len(value) > max_msg_len:
+            max_msg_len = len(value)
+    for i, (key, value) in enumerate(op_names.items()):
+        if len(value) < max_msg_len:
+            appended_value = value + (' ' * (max_msg_len - len(value)))
+            op_names[key] = appended_value
+
+    def update(self, op_code, cur_count, max_count=None, message=''):
+        if op_code in self.op_names:
+            op_name = self.op_names[op_code]
+            if self.last_op_code is None or self.last_op_code != op_code:
+                if self.last_pbar is not None:
+                    self.last_pbar.close()
+                self.last_pbar = tqdm(total=max_count, unit='item', desc=op_name,
+                                      bar_format="%s{l_bar}%s%s{bar}%s{r_bar}" %
+                                                 (Fore.GREEN, Fore.RESET, Fore.BLUE, Fore.RESET))
+                self.last_pos = 0
+                self.last_op_code = op_code
+            pbar = self.last_pbar
+            last_pos = self.last_pos
+            diff = cur_count - last_pos
+            pbar.update(diff)
+            self.last_pbar = pbar
+            self.last_op_code = op_code
+            self.last_pos = cur_count
+
+# end
 # @dataclass
 # class Person:
 #     name: str = ''
@@ -82,7 +132,7 @@ def create_repo(reponame=None, description=None):
     # TODO wtf is this doing.... :-)
     check_repo = [rep['name'] for rep in data]
     if repo in check_repo:
-        print(f'Name of repository "{repo}" already exists.')
+        print(f'Name of repository "{repo}" already exist.')
         return
 
     repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
@@ -146,8 +196,7 @@ def list_org_repo(organization):
 
 
 def list_repo():
-    """ Function for listing directories."""
-
+    """Function for listing directories."""
     res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
     data = json.loads(res.content)
     for dat in data:
@@ -156,16 +205,32 @@ def list_repo():
 
 def clone_repo(args_clone):
     """Clone repo into current directory."""
-    print("DEBUG: args_clone:", args_clone)
     target_dir = CURDIR.resolve()
 
-    # User input: --clone reponame username
+    # User specified both arguments: --clone <reponame> <username>
     if len(args_clone) == 2:
         reponame, username = args_clone
-        res = git.Git(target_dir).clone(f"{SERVER}/{username}/{reponame}")
-        print("[ INFO ] DONE")
 
-    # User input: --clone reponame
+        # Does the username exist?
+        res = requests.get(f"{SERVER}/api/v1/users/{username}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            sys.exit(1)
+
+        # Does the <repository> of <user> exist?
+        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            sys.exit(1)
+
+        # Everything OK, clone the repository
+        repo = Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
+                                   to_path=Path(target_dir / reponame).resolve(),
+                                   progress=Progress())
+        print("[ INFO ] DONE")
+        return repo
+
+    # User didn't specify <username>: --clone <reponame>
     elif len(args_clone) == 1:
         reponame = args_clone[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
@@ -174,35 +239,50 @@ def clone_repo(args_clone):
         # Check if there was a good response
         if not data.get('ok'):
             print(f"[ ERROR ] Shit... Data not acquired... {data}")
-            sys.exit()
+            sys.exit(1)
+        elif not data.get('data'):
+            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            sys.exit(1)
 
-        # Data acquired, list all found repos
+        # Data acquired, list all found repos in nice table
         headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
         tbl = columnar(results, headers, no_borders=True)
         print(tbl)
 
+        # Ask for repo ID
         answer = input("Enter repo ID: ")
-        print(f"[ INFO ] Clonning ID: {answer}")
+        if not answer:
+            print("[ ERROR ] You have to write an ID")
+            sys.exit(1)
+        elif not answer.isdigit():
+            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            sys.exit(1)
 
         # Get the right repo by it's ID
-        repo_to_clone = [ls for ls in results if ls[0] == answer]
-        if len(repo_to_clone) != 1:
-            print(f"[ ERROR ] Beware! len(repo_to_clone) != 1... That's weird... it's: {len(repo_to_clone)}")
-            sys.exit()
+        repo_id = int(answer)
+        repo_to_clone = [ls for ls in results if ls[0] == repo_id]
 
-        # with repo_to_clone[0] as rep:
-        #     print("DEBUG: rep:", rep)
-        #     repoid, reponame, username, description = rep
+        # User made a mistake and entered number is not one of the listed repo IDs
+        if len(repo_to_clone) == 0:
+            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            sys.exit(1)
 
+        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
+        elif len(repo_to_clone) > 1:
+            print(f"[ ERROR ] Beware! len(repo_to_clone) > 1... That's weird... "
+                  f"Like really... Len is: {len(repo_to_clone)}")
+            sys.exit(1)
+
+        print(f"[ INFO ] Clonning ID: {repo_id}")
         reponame, username = repo_to_clone[0][1], repo_to_clone[0][2]
         clone_repo([reponame, username])
         return 0
 
 
 def remove_repo(reponame, user=None):
-    """Remove repository from gitea """
+    """Remove repository from gitea"""
     repo_headers = {'accept': 'application/json'}
     res = requests.get(f"{SERVER}/api/v1/users/search", headers=repo_headers)
     data = json.loads(res.content)['data']
@@ -279,7 +359,6 @@ if __name__ == '__main__':
         sys.exit()
 
     elif args.clone:
-        print(f"Clonning: {args.clone}")
         clone_repo(args.clone)
         sys.exit()
 
