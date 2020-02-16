@@ -23,6 +23,7 @@ from git import Repo, RemoteProgress  # https://gitpython.readthedocs.io/en/stab
 from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import Fore  # https://pypi.org/project/colorama/
 from tqdm import tqdm  # https://pypi.org/project/tqdm/
+from click import style  # https://pypi.org/project/click/
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
@@ -112,39 +113,78 @@ class Progress(RemoteProgress):
 # TODO: zprovoznit kdyz nezada reponame ani description
 # TODO: Kdyz se do repo_data da auto_init=true, haze to chybu <response 500>
 # TODO: Pri vytvoreni vytvorit i readme a prazdny gitignore
-def create_repo(reponame=None, description=None):
+def create_repo(args_create):
 
+    # Default parameters
+    reponame, description, username = '', '', getpass.getuser()
+    if args_create == 'empty':
+        pass
+    elif len(args_create) == 1:
+        reponame = args_create[0]
+    elif len(args_create) == 2:
+        reponame, description = args_create
+    else:
+        reponame, description, username = args_create
+
+
+    #
     repo = input(f'Repository name [{reponame}]: ')
+    repo = reponame if not repo else repo
+    if not repo:
+        print(f"[ ERROR ] You have to enter the name of your repository.")
+        sys.exit(1)
+
     desc = input(f'Repository description [{description}]: ')
+    desc = description if not desc else desc
+    if not desc:
+        print(f"[ ERROR ] You have to write a small description for your project.")
+        sys.exit(1)
 
-    # repo = reponame if not repo else repo
-    # desc = description if not desc else desc
+    # Try to create the repo
+    # repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
+    repo_data = {
+        'auto_init': True,
+        'name': repo,
+        'readme': 'Default',
+        'description': desc,
+        'gitignores': 'Evektor',
+        'private': False
+    }
+    # User entered third argument: username. Only users with admin right can create repos anywhere
+    if type(args_create) == 'list' and len(args_create) == 3:
+        res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
+                            # headers=repo_headers, json=repo_data,
+                            json=repo_data)
+    else:
+        res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
+                            # headers=repo_headers, json=repo_data,
+                            json=repo_data)
 
-    if repo == '':
-        repo = reponame
-    if desc == '':
-        desc = description
+    # Viable responses
+    if res.status_code == 409:
+        print(f"[ ERROR ] Repository '{reponame}' with the same name under '{username}' already exists.")
+        sys.exit(1)
 
-    username = getpass.getuser()
+    elif res.status_code == 401:
+        print(f"[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
+        sys.exit(1)
 
-    res = requests.get(f"{SERVER}/api/v1/users/{username}/repos")
-    data = json.loads(res.content)
-    # TODO if data['ok'] not ok... error hlaska
+    elif res.status_code == 422:
+        print(f"[ ERROR ] APIValidationError is error format response related to input validation.")
+        print(json.loads(res.content))
+        sys.exit(1)
 
-    # TODO wtf is this doing.... :-)
-    check_repo = [rep['name'] for rep in data]
-    if repo in check_repo:
-        print(f'Name of repository "{repo}" already exist.')
-        return
+    elif res.status_code == 201:
+        print("[ INFO ] Done. Repository created.")
+        answer = input("Clone into current folder? [Y/n]: ")
+        if answer.lower() in ['y', 'yes']:
+            Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
+                           to_path=Path(CURDIR.resolve() / reponame).resolve(),
+                           branch='master',
+                           progress=Progress())
 
-    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
-    repo_data = {'auto_init': True, 'name': repo, 'readme': 'default',
-                 'description': desc, 'private': False}
-
-    res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
-                        headers=repo_headers, json=repo_data)
-    print(res)
-    # TODO is this OK? If yes, don't tell RES, tell OK or DONE :-)
+        print("[ INFO ] DONE")
+        sys.exit(0)
 
 
 def create_repo_org(reponame=None, organization=None, description=None):
@@ -236,7 +276,7 @@ def clone_repo(args_clone):
     elif len(args_clone) == 1:
         reponame = args_clone[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        print(f"[ DEBUG ] res: {res}")
+        # print(f"[ DEBUG ] res: {res}")
 
         data = json.loads(res.content)
 
@@ -287,7 +327,7 @@ def clone_repo(args_clone):
 
 def remove_repo(args_remove):
     """Remove repository from gitea"""
-    print(f"[ DEBUG ] reponame: {args_remove}")
+    # print(f"[ DEBUG ] reponame: {args_remove}")
 
     # User specified both arguments: --clone <reponame> <username>
     if len(args_remove) == 2:
@@ -305,24 +345,24 @@ def remove_repo(args_remove):
             print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
-        # Everything OK, delete the repository
-        print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
-        answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
-        if answer.lower() not in ['y', 'yes']:
-            print(f"[ INFO ] Cancelling... Nothing removed.")
-            sys.exit(0)
+        # # Everything OK, delete the repository
+        # print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
+        # answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+        # if answer.lower() not in ['y', 'yes']:
+        #     print(f"[ INFO ] Cancelling... Nothing removed.")
+        #     sys.exit(0)
 
-        answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
-        if not answer == reponame:
-            print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
-            sys.exit(1)
+        # answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
+        # if not answer == reponame:
+        #     print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
+        #     sys.exit(1)
 
-        print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'...")
+        print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'")
         res = requests.delete(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}")
 
         # Case when something is wrong with GITEA_TOKEN...
         if res.status_code == 401:
-            print("[ ERROR ] Unautorized... Something wrong with you GITEA_TOKEN...")
+            print("[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
             sys.exit()
 
         # Case when normal user tries to remove repository of another user and doesn't have authorization for that
@@ -353,7 +393,10 @@ def remove_repo(args_remove):
         headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True)
+        patterns = [
+            (getpass.getuser(), lambda text: style(text, fg='green')),
+        ]
+        tbl = columnar(results, headers, no_borders=True, patterns=patterns, wrap_max=0)
         print(tbl)
 
         # Ask for repo ID
@@ -380,62 +423,15 @@ def remove_repo(args_remove):
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
-        print(f"[ INFO ] Removing ID: {repo_id}")
+        print(f"[ INFO ] Selected ID: {repo_id}")
         reponame, username = selected_repository[0][1], selected_repository[0][2]
         remove_repo([reponame, username])
         return 0
-
-    sys.exit()
-
-
-
-    # If user give two values(reponame, user), remove this
-    if user:
-        if user not in users:
-            print(f'User "{user}" not found.')
-            return
-        res = requests.delete(
-            f"{SERVER}/api/v1/repos/{user}/{reponame}?access_token={GITEA_TOKEN}")
-        # print(res)
-    else:
-        # Search repositories
-        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}",
-                           headers=repo_headers)
-        data = json.loads(res.content)
-        # get list of dicts
-        for key, value in data.items():
-            list_of_dict = value
-        if list_of_dict == []:
-            print("Searching repository doesn't exist.")
-            return
-        list_to_table = []
-        for char in list_of_dict:
-            repository = char["name"]
-            username = (char["owner"])["login"]
-            description = char["description"]
-            list_to_table.append([repository, username, description])
-        # create table
-        headers = ['repository', 'user', 'description']
-        table = columnar(list_to_table, headers, no_borders=True)
-        print(table)
-
-        values = input("Specify [repo] [user]: ").split(' ')
-        repository, user = values
-        res = requests.delete(
-            f"{SERVER}/api/v1/repos/{user}/{repository}?access_token={GITEA_TOKEN}")
-        # print(res)
-
-    if res.ok:
-        print('Removing repository was successfull.')
-    else:
-        print('Repository not found.')
 
 
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
-
-
 if __name__ == '__main__':
 
     parser = cli.get_parser()
@@ -446,17 +442,15 @@ if __name__ == '__main__':
     print("--------------------------------------------------------------------------------")
 
     # In case of no input, show help
-    if not any(vars(args).values()):
+    # if not any(vars(args).values()):
+    if not len(sys.argv) > 1:
         print("[ ERROR ] No arguments... Showing help.")
         print()
         parser.print_help()
         sys.exit()
 
     if args.create:
-        if len(args.create) == 2:
-            create_repo(args.create[0], args.create[1])
-        else:
-            create_repo()
+        create_repo(args.create)
         sys.exit()
 
     elif args.clone:
@@ -467,26 +461,26 @@ if __name__ == '__main__':
         remove_repo(args.remove)
         sys.exit()
 
-    elif args.transfer:
-        print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
-        print("[ INFO ] Exitting now...")
-        # transfer_repo()
-        sys.exit()
-
     # elif args.transfer:
-    #     transfer_repo()
+    #     print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
+    #     print("[ INFO ] Exitting now...")
+    #     # transfer_repo()
     #     sys.exit()
-    elif args.list_repo:
-        list_repo()
-        sys.exit()
 
-    elif args.create_org_repo:
-        create_repo_org(args.create_org_repo)
-        sys.exit()
+    # # elif args.transfer:
+    # #     transfer_repo()
+    # #     sys.exit()
+    # elif args.list_repo:
+    #     list_repo()
+    #     sys.exit()
 
-    elif args.list_org_repo:
-        list_org_repo(args.list_org_repo)
-        sys.exit()
+    # elif args.create_org_repo:
+    #     create_repo_org(args.create_org_repo)
+    #     sys.exit()
+
+    # elif args.list_org_repo:
+    #     list_org_repo(args.list_org_repo)
+    #     sys.exit()
 
     # user = Person()
     # user.name = 'Jan Verner'

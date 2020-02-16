@@ -30,7 +30,8 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.formatter_class = CustomHelpFormatter
     parser.description = """
-<Ideally one line description of the program>
+Description:
+   <Ideally one line description of the program>
 
 """
     parser.add_argument('--version', action='version',
@@ -75,9 +76,9 @@ def get_parser():
     #                    help='Edit description file of <project_name>')
 
     group.add_argument('--create', dest='create', nargs='*', type=str,
-                       action=required_length(0, 2),
+                       action=required_length(0, 3),
                        metavar=('repository', 'description'),
-                       help='Create new remote <repository>, <description>')
+                       help='Create new remote [repository], [description], [user]')
 
     # group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
     #                    help='Create new remote <project_name>')
@@ -85,7 +86,7 @@ def get_parser():
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),
                        metavar=('repository', 'user'),
-                       help='Clone existing <repository> [<user>] into current directory')
+                       help='Clone existing <repository> [user] into current directory')
 
     # group.add_argument('--deploy', dest='deploy', action='store_true',
     #                    help='Deploy <project_name> to folder')
@@ -93,7 +94,7 @@ def get_parser():
     group.add_argument('--remove', dest='remove', nargs='+', type=str,
                        action=required_length(1, 2),
                        metavar=('repository', 'user'),
-                       help='Remove remote <repository> [<user>]')
+                       help='Remove remote <repository> [user]')
 
     # group.add_argument('--transfer', dest='transfer', action='store_true',
     #                    help='Transfer <project_name> to organization')
@@ -105,8 +106,10 @@ def required_length(nmin, nmax):
     class RequiredLength(argparse.Action):
         def __call__(self, parser, args, values, option_string=None):
             if not nmin <= len(values) <= nmax:
-                msg = 'argument "{f}" requires between {nmin} and {nmax} arguments'.format(
-                    f=self.dest, nmin=nmin, nmax=nmax)
+                msg = f'argument "{self.dest}" requires between {nmin} and {nmax} arguments'
                 raise argparse.ArgumentTypeError(msg)
             setattr(args, self.dest, values)
+            # If user writes just: 'eve-git --create', return 'empty' string as argument
+            if nmin == 0 and len(values) == 0:
+                setattr(args, self.dest, 'empty')
     return RequiredLength
