@@ -266,3 +266,4 @@ __pycache__/
 eve-git2.sublime-workspace
 eve-git2.sublime-project
 .vscode/
+settings.py

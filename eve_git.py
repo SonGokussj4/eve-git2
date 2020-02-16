@@ -6,9 +6,6 @@
 # =================================
 # =           LIBRARIES           =
 # =================================
-# User Libs
-import cli
-
 # System Libs
 import os
 import sys
@@ -17,6 +14,14 @@ import getpass
 from pathlib import Path
 # from dataclasses import dataclass
 import requests
+
+# User Libs
+import cli
+try:
+    import settings as cfg
+except ModuleNotFoundError:
+    print("[ ERROR ] No 'settings.py' file in root directory. Rename/Modify 'settings.py.example'")
+    sys.exit()
 
 # Pip Libs
 from git import Repo, RemoteProgress  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
@@ -39,8 +44,8 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
-SERVER = "http://gitea.avalon.konstru.evektor.cz"
-SERVER = "http://gitea.avalon"
+SERVER = cfg.Server.url
+
 try:
     # GITEA_TOKEN = os.environ['GITEA_TOKEN']
     GITEA_TOKEN = "6a83378343b6210830dd5fb6d12800f9ee393305"
@@ -99,20 +104,10 @@ class Progress(RemoteProgress):
             self.last_op_code = op_code
             self.last_pos = cur_count
 
-# end
-# @dataclass
-# class Person:
-#     name: str = ''
-#     age: int = 0
-
 
 # =================================
 # =           FUNCTIONS           =
 # =================================
-
-# TODO: zprovoznit kdyz nezada reponame ani description
-# TODO: Kdyz se do repo_data da auto_init=true, haze to chybu <response 500>
-# TODO: Pri vytvoreni vytvorit i readme a prazdny gitignore
 def create_repo(args_create):
 
     # Default parameters
@@ -162,7 +157,7 @@ def create_repo(args_create):
 
     # Viable responses
     if res.status_code == 409:
-        print(f"[ ERROR ] Repository '{reponame}' with the same name under '{username}' already exists.")
+        print(f"[ ERROR ] Repository '{repo}' with the same name under '{username}' already exists.")
         sys.exit(1)
 
     elif res.status_code == 401:
@@ -170,16 +165,16 @@ def create_repo(args_create):
         sys.exit(1)
 
     elif res.status_code == 422:
-        print(f"[ ERROR ] APIValidationError is error format response related to input validation.")
-        print(json.loads(res.content))
+        print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
+        print(f"[ ERROR ] {json.loads(res.content)}")
         sys.exit(1)
 
     elif res.status_code == 201:
         print("[ INFO ] Done. Repository created.")
         answer = input("Clone into current folder? [Y/n]: ")
         if answer.lower() in ['y', 'yes']:
-            Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
-                           to_path=Path(CURDIR.resolve() / reponame).resolve(),
+            Repo.clone_from(url=f"{SERVER}/{username}/{repo}",
+                           to_path=Path(CURDIR.resolve() / repo).resolve(),
                            branch='master',
                            progress=Progress())
 
