@@ -39,8 +39,10 @@ if sys.version_info.minor <= 6:
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = "http://gitea.avalon.konstru.evektor.cz"
+SERVER = "http://gitea.avalon"
 try:
-    GITEA_TOKEN = os.environ['GITEA_TOKEN']
+    # GITEA_TOKEN = os.environ['GITEA_TOKEN']
+    GITEA_TOKEN = "6a83378343b6210830dd5fb6d12800f9ee393305"
 except KeyError:
     print("[ WARNING ] You DON'T have environment variable GITEA_TOKEN in your ~/.bashrc. Or Exported.")
     print("[ WARNING ] You CAN list, search and clone repositories but NOT create, deploy, transfer, etc...")
@@ -234,6 +236,8 @@ def clone_repo(args_clone):
     elif len(args_clone) == 1:
         reponame = args_clone[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        print(f"[ DEBUG ] res: {res}")
+
         data = json.loads(res.content)
 
         # Check if there was a good response
@@ -262,31 +266,128 @@ def clone_repo(args_clone):
 
         # Get the right repo by it's ID
         repo_id = int(answer)
-        repo_to_clone = [ls for ls in results if ls[0] == repo_id]
+        selected_repository = [ls for ls in results if ls[0] == repo_id]
 
         # User made a mistake and entered number is not one of the listed repo IDs
-        if len(repo_to_clone) == 0:
+        if len(selected_repository) == 0:
             print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(repo_to_clone) > 1:
-            print(f"[ ERROR ] Beware! len(repo_to_clone) > 1... That's weird... "
-                  f"Like really... Len is: {len(repo_to_clone)}")
+        elif len(selected_repository) > 1:
+            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+                  f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
         print(f"[ INFO ] Clonning ID: {repo_id}")
-        reponame, username = repo_to_clone[0][1], repo_to_clone[0][2]
+        reponame, username = selected_repository[0][1], selected_repository[0][2]
         clone_repo([reponame, username])
         return 0
 
 
-def remove_repo(reponame, user=None):
+def remove_repo(args_remove):
     """Remove repository from gitea"""
-    repo_headers = {'accept': 'application/json'}
-    res = requests.get(f"{SERVER}/api/v1/users/search", headers=repo_headers)
-    data = json.loads(res.content)['data']
-    users = [login['login'] for login in data]
+    print(f"[ DEBUG ] reponame: {args_remove}")
+
+    # User specified both arguments: --clone <reponame> <username>
+    if len(args_remove) == 2:
+        reponame, username = args_remove
+
+        # Does the username exist?
+        res = requests.get(f"{SERVER}/api/v1/users/{username}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            sys.exit(1)
+
+        # Does the <repository> of <user> exist?
+        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            sys.exit(1)
+
+        # Everything OK, delete the repository
+        print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
+        answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+        if answer.lower() not in ['y', 'yes']:
+            print(f"[ INFO ] Cancelling... Nothing removed.")
+            sys.exit(0)
+
+        answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
+        if not answer == reponame:
+            print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
+            sys.exit(1)
+
+        print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'...")
+        res = requests.delete(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}")
+
+        # Case when something is wrong with GITEA_TOKEN...
+        if res.status_code == 401:
+            print("[ ERROR ] Unautorized... Something wrong with you GITEA_TOKEN...")
+            sys.exit()
+
+        # Case when normal user tries to remove repository of another user and doesn't have authorization for that
+        elif res.status_code == 403:
+            print("[ ERROR ] Forbidden... You don't have enough permissinons to delete this repository...")
+            sys.exit()
+
+        print("[ INFO ] DONE")
+
+        return 0
+
+    # User didn't specify <username>: --remove <reponame>
+    elif len(args_remove) == 1:
+        reponame = args_remove[0]
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+
+        data = json.loads(res.content)
+
+        # Check if there was a good response
+        if not data.get('ok'):
+            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            sys.exit(1)
+        elif not data.get('data'):
+            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            sys.exit(1)
+
+        # Data acquired, list all found repos in nice table
+        headers = ('id', 'repository', 'user', 'description')
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                   for item in data.get('data')]
+        tbl = columnar(results, headers, no_borders=True)
+        print(tbl)
+
+        # Ask for repo ID
+        answer = input("Enter repo ID: ")
+        if not answer:
+            print("[ ERROR ] You have to write an ID")
+            sys.exit(1)
+        elif not answer.isdigit():
+            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            sys.exit(1)
+
+        # Get the right repo by it's ID
+        repo_id = int(answer)
+        selected_repository = [ls for ls in results if ls[0] == repo_id]
+
+        # User made a mistake and entered number is not one of the listed repo IDs
+        if len(selected_repository) == 0:
+            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            sys.exit(1)
+
+        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
+        elif len(selected_repository) > 1:
+            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+                  f"Like really... Len is: {len(selected_repository)}")
+            sys.exit(1)
+
+        print(f"[ INFO ] Removing ID: {repo_id}")
+        reponame, username = selected_repository[0][1], selected_repository[0][2]
+        remove_repo([reponame, username])
+        return 0
+
+    sys.exit()
+
+
 
     # If user give two values(reponame, user), remove this
     if user:
@@ -341,12 +442,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print("--------------------------------------------------------------------------------")
-    print("DEBUG: args:", args)
+    print(f"[ DEBUG ] args: {args}")
     print("--------------------------------------------------------------------------------")
 
     # In case of no input, show help
     if not any(vars(args).values()):
-        print("ERROR: No arguments... Showing help.")
+        print("[ ERROR ] No arguments... Showing help.")
         print()
         parser.print_help()
         sys.exit()
@@ -362,6 +463,10 @@ if __name__ == '__main__':
         clone_repo(args.clone)
         sys.exit()
 
+    elif args.remove:
+        remove_repo(args.remove)
+        sys.exit()
+
     elif args.transfer:
         print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
         print("[ INFO ] Exitting now...")
@@ -373,13 +478,6 @@ if __name__ == '__main__':
     #     sys.exit()
     elif args.list_repo:
         list_repo()
-        sys.exit()
-
-    elif args.remove:
-        if len(args.remove) == 2:
-            remove_repo(args.remove[0], args.remove[1])
-        else:
-            remove_repo(args.remove[0])
         sys.exit()
 
     elif args.create_org_repo:
