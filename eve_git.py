@@ -45,13 +45,7 @@ if sys.version_info.minor <= 6:
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = cfg.Server.url
-
-try:
-    # GITEA_TOKEN = os.environ['GITEA_TOKEN']
-    GITEA_TOKEN = "6a83378343b6210830dd5fb6d12800f9ee393305"
-except KeyError:
-    print("[ WARNING ] You DON'T have environment variable GITEA_TOKEN in your ~/.bashrc. Or Exported.")
-    print("[ WARNING ] You CAN list, search and clone repositories but NOT create, deploy, transfer, etc...")
+GITEA_TOKEN = cfg.Server.gitea_token
 
 
 # ===============================
@@ -108,6 +102,86 @@ class Progress(RemoteProgress):
 # =================================
 # =           FUNCTIONS           =
 # =================================
+def create_org(args):
+    print("creating org...")
+    # sys.exit()
+    # Default parameters
+    orgname, visibility, = '', ''
+    if args == 'empty':
+        pass
+    elif len(args) == 1:
+        orgname = args[0]
+    elif len(args) == 2:
+        orgname, visibility = args
+
+    #
+    repo = input(f'Organization name [{orgname}]: ')
+    repo = orgname if not repo else repo
+    if not repo:
+        print(f"[ ERROR ] You have to enter the name of the organization.")
+        sys.exit(1)
+
+    desc = input(f'Organization visibility [{visibility}]: ')
+    desc = visibility if not desc else desc
+    if not desc:
+        print(f"[ ERROR ] You have to specify organization visibility [all, public, secret]")
+        sys.exit(1)
+
+    print("DEBUG: repo:", repo)
+
+    # Try to create the repo
+    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
+    repo_data = {
+        "description": desc,
+        # "full_name": repo,
+        # "location": "string",
+        "repo_admin_change_team_access": True,
+        "username": repo,
+        "visibility": "public",
+        # "website": "string"
+    }
+
+    # User entered third argument: username. Only users with admin right can create repos anywhere
+    # if type(args_create) == 'list' and len(args_create) == 3:
+    res = requests.post(url=f"{SERVER}/api/v1/orgs/?access_token={GITEA_TOKEN}",
+                        headers=repo_headers,
+                        json=repo_data)
+    print("DEBUG: res:", res)
+    print("DEBUG: res.content:", res.content)
+    print("DEBUG: json.loads(res.content):", json.loads(res.content))
+
+    # else:
+    #     res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
+    #                         headers=repo_headers,
+    #                         json=repo_data)
+
+    # # Viable responses
+    # if res.status_code == 409:
+    #     print(f"[ ERROR ] Repository '{repo}' with the same name under '{username}' already exists.")
+    #     sys.exit(1)
+
+    # elif res.status_code == 401:
+    #     print(f"[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
+    #     sys.exit(1)
+
+    # elif res.status_code == 422:
+    #     print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
+    #     print(f"[ ERROR ] {json.loads(res.content)}")
+    #     sys.exit(1)
+
+    # elif res.status_code == 201:
+    #     print("[ INFO ] Done. Repository created.")
+    #     answer = input("Clone into current folder? [Y/n]: ")
+    #     if answer.lower() in ['y', 'yes']:
+    #         Repo.clone_from(url=f"{SERVER}/{username}/{repo}",
+    #                        to_path=Path(CURDIR.resolve() / repo).resolve(),
+    #                        branch='master',
+    #                        progress=Progress())
+
+    print("[ INFO ] DONE")
+    sys.exit(0)
+
+
 def create_repo(args_create):
 
     # Default parameters
@@ -136,23 +210,26 @@ def create_repo(args_create):
         sys.exit(1)
 
     # Try to create the repo
-    # repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
+    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
     repo_data = {
         'auto_init': True,
         'name': repo,
         'readme': 'Default',
         'description': desc,
-        'gitignores': 'Evektor',
+        # 'gitignores': 'Evektor',
         'private': False
     }
+    print("DEBUG: username:", username)
+    print("DEBUG: repo:", repo)
+
     # User entered third argument: username. Only users with admin right can create repos anywhere
     if type(args_create) == 'list' and len(args_create) == 3:
-        res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
-                            # headers=repo_headers, json=repo_data,
+        res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
+                            headers=repo_headers,
                             json=repo_data)
     else:
-        res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
-                            # headers=repo_headers, json=repo_data,
+        res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
+                            headers=repo_headers,
                             json=repo_data)
 
     # Viable responses
@@ -446,6 +523,10 @@ if __name__ == '__main__':
 
     if args.create:
         create_repo(args.create)
+        sys.exit()
+
+    elif args.create_org:
+        create_org(args.create_org)
         sys.exit()
 
     elif args.clone:

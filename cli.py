@@ -80,8 +80,10 @@ Description:
                        metavar=('repository', 'description'),
                        help='Create new remote [repository], [description], [user]')
 
-    # group.add_argument('--create_org_repo', dest='create_org_repo', action='store_true',
-    #                    help='Create new remote <project_name>')
+    group.add_argument('--create_org', dest='create_org', nargs='+', type=str,
+                       action=required_length(1, 2),
+                       metavar=('organization', 'visibility'),
+                       help='Create new [organization], [visibility]')
 
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),

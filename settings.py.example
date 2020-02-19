@@ -2,4 +2,5 @@ from dataclasses import dataclass
 
 @dataclass
 class Server:
-    url: str = 'http://gitea.mydomain'
+    url: str = 'http://gitea.mydomain'  # http://localhost:3000
+    gitea_token: str = 'flsdkjfdjfjdfjsdjfljsdlkjlf'
