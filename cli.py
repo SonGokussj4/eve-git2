@@ -98,6 +98,11 @@ Description:
                        metavar=('repository', 'user'),
                        help='Remove remote <repository> [user]')
 
+    group.add_argument('--remove_org', dest='remove_org', nargs='*', type=str,
+                       action=required_length(0, 1),
+                       metavar=('organization'),
+                       help='Remove remote <organization>')
+
     # group.add_argument('--transfer', dest='transfer', action='store_true',
     #                    help='Transfer <project_name> to organization')
 

@@ -188,6 +188,8 @@ def create_repo(args_create):
 
     # Try to create the repo
     repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
+    # TODO toto mel ptinka - zjistit, co delat ACCESS_TOKEN
+    # repo_headers = {'content-type': 'application/json', 'Authorization': 'token ACCESS_TOKEN'}
     repo_data = {
         'auto_init': True,
         'name': repo,
@@ -236,26 +238,8 @@ def create_repo(args_create):
         sys.exit(0)
 
 
-def create_repo_org(reponame=None, organization=None, description=None):
-    # Create repository in organization
-
-    # reponame = input('Repository name: ')
-    # description = input('Repository description: ')
-    # descriporganizationtion = input('Organization: ')
-    reponame = "Test"
-    organization = "P135"
-    description = "Test"
-    repo_data = {'name': reponame,
-                 'description': description, 'private': False}
-    repo_headers = {'content-type': 'application/json',
-                    'Authorization': 'token ACCESS_TOKEN'}
-    res = requests.post(
-        f"{SERVER}/api/v1/org/{organization}/repos?access_token={GITEA_TOKEN}",
-        headers=repo_headers, json=repo_data)
-    # print(f"{SERVER}/api/v1/org/{organization}/repos?access_token={GITEA_TOKEN}")
-    print(res)
-
 # TODO: trnasfer chybel v lokalni gitea (https://gitea.avalon.konstru.evektor.cz/api/swagger)
+# TODO: bude ve verzi 1.12.0
 # def transfer_repo():
 #     """To tranfer repo to some organization """
 
@@ -478,6 +462,100 @@ def remove_repo(args_remove):
         return 0
 
 
+def remove_org(args_remove):
+    """Remove repository from gitea"""
+
+    # User specified both arguments: --clone <reponame> <username>
+    if len(args_remove) == 1:
+        orgname = args_remove[0]
+
+        # Get the repository
+        res = requests.get(f"{SERVER}/api/v1/orgs/{orgname}")
+
+        # Case repo does not exist
+        if res.status_code == 404:
+            print(f"[ ERROR ] Organization '{orgname}' not found...")
+            # TODO zobrazit vysledky hledani
+            sys.exit(1)
+
+        # Case repo exists, ask if you are really sure to remove it
+        elif res.status_code == 200:
+
+            # Everything OK, delete the repository
+            print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{orgname}'")
+            answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+            # TODO mam pocit, ze kdyz se smaze organizace, tak se jen repo v nich nekam premisti, zkusit
+            if answer.lower() not in ['y', 'yes']:
+                print(f"[ INFO ] Cancelling... Nothing removed.")
+                sys.exit(0)
+
+            answer = input(f"Enter the organization NAME as confirmation [{orgname}]: ")
+            if not answer == orgname:
+                print(f"[ ERROR ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
+                sys.exit(1)
+
+            print(f"[ INFO ] Deleting organization '{orgname}'")
+            res = requests.delete(f"{SERVER}/api/v1/orgs/{orgname}?access_token={GITEA_TOKEN}")
+
+            # All ok
+            if res.status_code == 204:
+                print("[ INFO ] Done. Organization removed.")
+                return 0
+
+            elif res.status_code == 401:
+                print("[ ERROR ] Unauthorized. You don't have enough rights to delete this repository.")
+                sys.exit(1)
+
+    elif args_remove == 'empty':
+        # Get all organizations
+        res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
+        data = json.loads(res.content)
+        print("DEBUG: data:", data)
+
+        # Check if there was a good response
+        if not data:
+            print(f"[ ERROR ] Search for organizations returned 0 results... Try something different.")
+            sys.exit(1)
+
+        print("Which Organization you want to delete?")
+        # Data acquired, list all found repos in nice table
+        headers = ('id', 'org', 'description')
+        results = [[item['id'], item['username'], item['description']]
+                   for item in data]
+        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        print(tbl)
+
+        # Ask for org ID
+        answer = input("Enter org ID: ")
+        if not answer:
+            print("[ ERROR ] You have to write an ID")
+            sys.exit(1)
+        elif not answer.isdigit():
+            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            sys.exit(1)
+
+        # Get the right org by it's ID
+        org_id = int(answer)
+        selected_organization = [ls for ls in results if ls[0] == org_id]
+
+        # User made a mistake and entered number is not one of the listed repo IDs
+        if len(selected_organization) == 0:
+            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            sys.exit(1)
+
+        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
+        elif len(selected_organization) > 1:
+            print(f"[ ERROR ] Beware! len(selected_organization) > 1... That's weird... "
+                  f"Like really... Len is: {len(selected_organization)}")
+            sys.exit(1)
+
+        print(f"[ INFO ] Selected ID: {org_id}")
+        orgname = selected_organization[0][1]
+
+        remove_org([orgname])
+        return 0
+
+
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
@@ -512,6 +590,10 @@ if __name__ == '__main__':
 
     elif args.remove:
         remove_repo(args.remove)
+        sys.exit()
+
+    elif args.remove_org:
+        remove_org(args.remove_org)
         sys.exit()
 
     # elif args.transfer:
