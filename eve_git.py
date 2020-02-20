@@ -103,82 +103,59 @@ class Progress(RemoteProgress):
 # =           FUNCTIONS           =
 # =================================
 def create_org(args):
-    print("creating org...")
-    # sys.exit()
+    """Function Description."""
     # Default parameters
-    orgname, visibility, = '', ''
+    org_name_input, description, = '', ''
     if args == 'empty':
         pass
     elif len(args) == 1:
-        orgname = args[0]
+        org_name_input = args[0]
     elif len(args) == 2:
-        orgname, visibility = args
+        org_name_input, description = args
 
-    #
-    repo = input(f'Organization name [{orgname}]: ')
-    repo = orgname if not repo else repo
-    if not repo:
+    org_name = input(f'Organization name [{org_name_input}]: ')
+    org_name = org_name_input if not org_name else org_name
+    if not org_name:
         print(f"[ ERROR ] You have to enter the name of the organization.")
         sys.exit(1)
 
-    desc = input(f'Organization visibility [{visibility}]: ')
-    desc = visibility if not desc else desc
+    desc = input(f'Organization description [{description}]: ')
+    desc = description if not desc else desc
     if not desc:
-        print(f"[ ERROR ] You have to specify organization visibility [all, public, secret]")
+        print(f"[ ERROR ] You have to specify organization description.")
         sys.exit(1)
 
-    print("DEBUG: repo:", repo)
-
-    # Try to create the repo
+    # Try to create the org_name
     repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
     repo_data = {
         "description": desc,
-        # "full_name": repo,
-        # "location": "string",
+        # "full_name": full_name,  # TODO moznost zadani?
         "repo_admin_change_team_access": True,
-        "username": repo,
+        "username": org_name,  # Org name
         "visibility": "public",
-        # "website": "string"
     }
 
-    # User entered third argument: username. Only users with admin right can create repos anywhere
-    # if type(args_create) == 'list' and len(args_create) == 3:
     res = requests.post(url=f"{SERVER}/api/v1/orgs/?access_token={GITEA_TOKEN}",
                         headers=repo_headers,
                         json=repo_data)
-    print("DEBUG: res:", res)
-    print("DEBUG: res.content:", res.content)
-    print("DEBUG: json.loads(res.content):", json.loads(res.content))
 
-    # else:
-    #     res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
-    #                         headers=repo_headers,
-    #                         json=repo_data)
+    # Viable responses
+    if res.status_code == 401:
+        print(f"[ ERROR ] Something went wrong. Check your GITEA_TOKEN or internet connection.")
+        sys.exit(1)
 
-    # # Viable responses
-    # if res.status_code == 409:
-    #     print(f"[ ERROR ] Repository '{repo}' with the same name under '{username}' already exists.")
-    #     sys.exit(1)
+    elif res.status_code == 422:
+        print(f"[ ERROR ] Repository '{org_name}' with the same name already exists.")
+        sys.exit(1)
 
-    # elif res.status_code == 401:
-    #     print(f"[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
-    #     sys.exit(1)
+    elif res.status_code == 422:
+        print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
+        print(f"[ ERROR ] {json.loads(res.content)}")
+        sys.exit(1)
 
-    # elif res.status_code == 422:
-    #     print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
-    #     print(f"[ ERROR ] {json.loads(res.content)}")
-    #     sys.exit(1)
+    elif res.status_code == 201:
+        print("[ INFO ] Done. Organization created.")
 
-    # elif res.status_code == 201:
-    #     print("[ INFO ] Done. Repository created.")
-    #     answer = input("Clone into current folder? [Y/n]: ")
-    #     if answer.lower() in ['y', 'yes']:
-    #         Repo.clone_from(url=f"{SERVER}/{username}/{repo}",
-    #                        to_path=Path(CURDIR.resolve() / repo).resolve(),
-    #                        branch='master',
-    #                        progress=Progress())
-
-    print("[ INFO ] DONE")
     sys.exit(0)
 
 
