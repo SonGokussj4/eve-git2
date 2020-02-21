@@ -197,8 +197,6 @@ def create_repo(args_create):
     else:
         reponame, description, username = args_create
 
-
-    #
     repo = input(f'Repository name [{reponame}]: ')
     repo = reponame if not repo else repo
     if not repo:
@@ -223,8 +221,8 @@ def create_repo(args_create):
         # 'gitignores': 'Evektor',
         'private': False
     }
-    print("DEBUG: username:", username)
-    print("DEBUG: repo:", repo)
+    # print("DEBUG: username:", username)
+    # print("DEBUG: repo:", repo)
 
     # User entered third argument: username. Only users with admin right can create repos anywhere
     if type(args_create) == 'list' and len(args_create) == 3:
@@ -295,12 +293,31 @@ def list_org_repo(organization):
     # print(f"{SERVER}/api/v1/orgs/{organization}/repos")
 
 
-def list_repo():
+def list_repo(args):
     """Function for listing directories."""
-    res = requests.get(f"{SERVER}/api/v1/users/{getpass.getuser()}/repos")
+    res = requests.get(f"{SERVER}/api/v1/repos/search")
     data = json.loads(res.content)
-    for dat in data:
-        print(dat["html_url"])
+
+    # TODO duplicate functionality, make a function
+    # Check if there was a good response
+    if not data.get('ok'):
+        print(f"[ ERROR ] Shit... Data not acquired... {data}")
+        sys.exit(1)
+    elif not data.get('data'):
+        print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+        sys.exit(1)
+
+    # Data acquired, list all found repos in nice table
+    headers = ('id', 'repository', 'user', 'description')
+    results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                for item in data.get('data')]
+    tbl = columnar(results, headers, no_borders=True)
+    print(tbl)
+    
+    # for dat in data:
+    #     print(dat["html_url"])
+    return 0
+    
 
 
 def clone_repo(args_clone):
@@ -403,17 +420,17 @@ def remove_repo(args_remove):
             print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
-        # # Everything OK, delete the repository
-        # print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
-        # answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
-        # if answer.lower() not in ['y', 'yes']:
-        #     print(f"[ INFO ] Cancelling... Nothing removed.")
-        #     sys.exit(0)
+        # Everything OK, delete the repository
+        print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
+        answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+        if answer.lower() not in ['y', 'yes']:
+            print(f"[ INFO ] Cancelling... Nothing removed.")
+            sys.exit(0)
 
-        # answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
-        # if not answer == reponame:
-        #     print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
-        #     sys.exit(1)
+        answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
+        if not answer == reponame:
+            print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
+            sys.exit(1)
 
         print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'")
         res = requests.delete(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}")
@@ -675,9 +692,10 @@ if __name__ == '__main__':
     # # elif args.transfer:
     # #     transfer_repo()
     # #     sys.exit()
-    # elif args.list_repo:
-    #     list_repo()
-    #     sys.exit()
+
+    elif args.list_repo:
+        list_repo(args.list_repo)
+        sys.exit()
 
     # elif args.create_org_repo:
     #     create_repo_org(args.create_org_repo)
