@@ -127,6 +127,43 @@ class Progress(RemoteProgress):
 # =================================
 # =           FUNCTIONS           =
 # =================================
+def deploy(args):
+    print(f"[ INFO ] Deploying... args: '{args}'")
+
+    # Args nejspis "reponame" "username"
+
+    # Mozna nejake navic, pokud to nebude v nejakem eve.conf souboru
+    # napr co to ma udelat executable,
+    # co to ma prekopirovat do Binu a jak to pojmenovat a na co to navazat
+    # Jestli neco nakopirovat nekam jinam: /expSW/SOFTWARE/var
+
+    # Zkontroluje to, zda repo s nazvem existuje. Pokud ne, smula. nedavat vyber
+    # Napsat info, co to vsechno bude delat
+    # A zeptat se, zda s tim clovek souhlasi
+
+    # Deploy by mel byt zavisly na tom, zda je to python, ma env, nebo bash, nebo tak.
+
+    # PYTHON
+    # Pokud skript obsahuje testy, tak napred udelat TESTY a pokracovat jen v pripade, ze jsou zelene
+    # mozna --ignore-tests
+    # Udelat git archive nebo git clone (a pote to smaze .git slozku), popr vygooglit,
+    # zda tam neni nejaky RSYNC (nebo git clone nekam to temp a pak Rsync zmen do cilove slozky,
+    # aby byl cas deploye co nejkratsi)
+    #
+    # Jakmile se zmeni soubory, udelat potrebne linky co Bin slozky
+    # Pote zkontrolovat, zda nynejsi requirements.txt se shoduje s vyslednym requirements
+    # Pokud ne, tak to v /tmp musi udelat jeste pip install -r requirements
+    # popripade to udelat jako odpojeni expSW, pripojeni expSW (idealne asi ne TACTICUS, ale externi - ar-nexus?)
+    # a instalovat pip a environment tam. ... Muset zkusit treba na pdf2text nebo tak.
+    # Pote rsync .env s tim, ze Run.sh je na nej napojeny.
+    #
+    # BASH
+    # Proste jen hodi na misto, smaze .git a udela link
+    
+
+    return 0
+
+
 def create_org(args):
     """Function Description."""
     # Default parameters
