@@ -37,31 +37,10 @@ Description:
     parser.add_argument('--version', action='version',
                         version=f'%(prog)s: {__version__}')
 
-    # parser.add_argument('--no-groups', dest='no_groups', action='store_true',
-    #                     help="Optional... <Don't show groups>")
-
-    # parser.add_argument('--no-color', dest='no_color', action='store_true',
-    #                     help="Optional... <Don't show colors>")
+    parser.add_argument('--details', dest='details', action='store_true',
+                        help="Optional... Show details when listing repos/orgs")
 
     group = parser.add_mutually_exclusive_group()
-
-    # group.add_argument(dest='users', nargs='*', type=str.lower, default=[],
-    #                    help='Optional... <Users>')
-
-    # group.add_argument('--img', dest='user_img', metavar='username', type=str.lower, default=None,
-    #                    help='Optional... <Username (one) to show picture>')
-
-    # group.add_argument('--tel', dest='user_tel', nargs='+', metavar='username', type=str.lower, default=None,
-    #                    help='Optional... <Username (one) to show telephone>')
-
-    # group.add_argument('--id', dest='user_id', nargs='+', metavar='username', type=str.lower, default=None,
-    #                    help='Optional... <Username (one) to show user ID number>')
-
-    # group.add_argument('--all', dest='all_users', action='store_true',
-    #                    help='Optional... <Show all people>')
-
-    # group.add_argument('--write-db', dest='write_db', action='store_true',
-    #                    help='Developer only... <Save people into Pickled database>')
 
     group.add_argument('--list', dest='list_repo', nargs='*', type=str,
                        action=required_length(0, 1),
@@ -69,9 +48,7 @@ Description:
                        help='Show all repositories [of entered <user>]')
     
     group.add_argument('--list_org', dest='list_org',
-                        action="store_true",
-                    #    action=required_length(0, 0),
-                    #    metavar=('username'),
+                       action="store_true",
                        help='Show all organizations')
 
     # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
@@ -110,8 +87,6 @@ Description:
 
     # group.add_argument('--deploy', dest='deploy', action='store_true',
     #                    help='Deploy <project_name> to folder')
-
-
 
     # group.add_argument('--transfer', dest='transfer', action='store_true',
     #                    help='Transfer <project_name> to organization')
