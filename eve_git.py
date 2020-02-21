@@ -283,21 +283,31 @@ def create_repo(args_create):
 #     print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
 
 
-def list_org_repo(organization):
-    # List of organization repositories
-    res = requests.get(f"{SERVER}/api/v1/orgs/{organization}/repos")
-    print(res)
+def list_org():
+    """Function for listing organizations."""
+    res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
     data = json.loads(res.content)
-    for dat in data:
-        print(dat["html_url"])
-    # print(f"{SERVER}/api/v1/orgs/{organization}/repos")
+    if res.status_code == 403:
+        print(f"[ ERROR ] Forbidden. You don't have enough access rights...")
+        # TODO mozna to udelat tak, ze vezmu vsechny repositare a vytahnu z nich do setu vsechny org
+        # TODO pak je accessnu a vypisu zde bez nutnosti GITEA_TOKEN
+        return 1
+    elif res.status_code == 200:
+        print(f"[ INFO ] All ok. Here is the list.")
 
+    # Data acquired, list all found repos in nice table
+    headers = ('Organization', 'description')
+    results = [[item['username'], item['description']] for item in data]
+    tbl = columnar(results, headers, no_borders=True)
+    print(tbl)
+
+    return 0
 
 def list_repo(args):
     """Function for listing directories."""
     res = requests.get(f"{SERVER}/api/v1/repos/search")
     data = json.loads(res.content)
-
+    
     # TODO duplicate functionality, make a function
     # Check if there was a good response
     if not data.get('ok'):
@@ -309,8 +319,12 @@ def list_repo(args):
 
     # Data acquired, list all found repos in nice table
     headers = ('id', 'repository', 'user', 'description')
-    results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                for item in data.get('data')]
+    if len(args) == 1:
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                    for item in data.get('data') if item['owner']['login'].lower() == args[0].lower()]
+    else:
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                    for item in data.get('data')]
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
     
@@ -701,9 +715,9 @@ if __name__ == '__main__':
     #     create_repo_org(args.create_org_repo)
     #     sys.exit()
 
-    # elif args.list_org_repo:
-    #     list_org_repo(args.list_org_repo)
-    #     sys.exit()
+    elif args.list_org is True:
+        list_org()
+        sys.exit()
 
     # user = Person()
     # user.name = 'Jan Verner'

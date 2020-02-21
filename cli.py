@@ -67,6 +67,12 @@ Description:
                        action=required_length(0, 1),
                        metavar=('username'),
                        help='Show all repositories [of entered <user>]')
+    
+    group.add_argument('--list_org', dest='list_org',
+                        action="store_true",
+                    #    action=required_length(0, 0),
+                    #    metavar=('username'),
+                       help='Show all organizations')
 
     # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
     #                    nargs=1, help='Show <organization> repositories.')
