@@ -80,11 +80,21 @@ Description:
                        metavar=('repository', 'description'),
                        help='Create new remote [repository], [description], [user]')
 
+    group.add_argument('--remove', dest='remove', nargs='+', type=str,
+                       action=required_length(1, 2),
+                       metavar=('repository', 'user'),
+                       help='Remove remote <repository> [user]')
+
     group.add_argument('--create_org', dest='create_org', nargs='*', type=str,
                        action=required_length(0, 2),
                        metavar=('organization', 'description'),
                        help='Create new [organization], [description]')
-
+    
+    group.add_argument('--remove_org', dest='remove_org', nargs='+', type=str,
+                       action=required_length(1, 1),
+                       metavar=('organization'),
+                       help='Remove remote <organization>')
+    
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),
                        metavar=('repository', 'user'),
@@ -93,15 +103,7 @@ Description:
     # group.add_argument('--deploy', dest='deploy', action='store_true',
     #                    help='Deploy <project_name> to folder')
 
-    group.add_argument('--remove', dest='remove', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Remove remote <repository> [user]')
 
-    group.add_argument('--remove_org', dest='remove_org', nargs='*', type=str,
-                       action=required_length(0, 1),
-                       metavar=('organization'),
-                       help='Remove remote <organization>')
 
     # group.add_argument('--transfer', dest='transfer', action='store_true',
     #                    help='Transfer <project_name> to organization')
