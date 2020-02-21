@@ -524,7 +524,7 @@ def remove_org(args_remove):
     # User specified both arguments: --clone <reponame> <username>
     if len(args_remove) == 1:
         orgname = args_remove[0]
-
+        
         # Get the repository
         res = requests.get(f"{SERVER}/api/v1/orgs/{orgname}")
 
@@ -694,7 +694,7 @@ if __name__ == '__main__':
         sys.exit()
 
     elif args.remove_org:
-        remove_org(args.remove_org)
+        remove_org(list(args.remove_org))
         sys.exit()
 
     # elif args.transfer:
