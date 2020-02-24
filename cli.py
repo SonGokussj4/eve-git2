@@ -46,7 +46,7 @@ Description:
                        action=required_length(0, 1),
                        metavar=('username'),
                        help='Show all repositories [of entered <user>]')
-    
+
     group.add_argument('--list_org', dest='list_org',
                        action="store_true",
                        help='Show all organizations')
@@ -74,16 +74,21 @@ Description:
                        action=required_length(0, 2),
                        metavar=('organization', 'description'),
                        help='Create new [organization], [description]')
-    
+
     group.add_argument('--remove_org', dest='remove_org', nargs='+', type=str,
                        action=required_length(1, 1),
                        metavar=('organization'),
                        help='Remove remote <organization>')
-    
+
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),
                        metavar=('repository', 'user'),
                        help='Clone existing <repository> [user] into current directory')
+
+    group.add_argument('--edit', dest='edit', nargs='+', type=str,
+                       action=required_length(1, 2),
+                       metavar=('repository', 'user'),
+                       help='Edit description in existing <repository> [user].')
 
     # group.add_argument('--deploy', dest='deploy', action='store_true',
     #                    help='Deploy <project_name> to folder')

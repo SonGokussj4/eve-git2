@@ -159,7 +159,7 @@ def deploy(args):
     #
     # BASH
     # Proste jen hodi na misto, smaze .git a udela link
-    
+
 
     return 0
 
@@ -323,7 +323,6 @@ def create_repo(args_create):
 def list_org():
     """Function for listing organizations."""
     res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
-    data = json.loads(res.content)
     if res.status_code == 403:
         print(f"[ ERROR ] Forbidden. You don't have enough access rights...")
         # TODO mozna to udelat tak, ze vezmu vsechny repositare a vytahnu z nich do setu vsechny org
@@ -331,6 +330,7 @@ def list_org():
         return 1
     elif res.status_code == 200:
         print(f"[ INFO ] All ok. Here is the list.")
+        data = json.loads(res.content)
 
     # Data acquired, list all found repos in nice table
     headers = ('Organization', 'description')
@@ -344,7 +344,8 @@ def list_repo(args):
     """Function for listing directories."""
     res = requests.get(f"{SERVER}/api/v1/repos/search")
     data = json.loads(res.content)
-    
+    print(LIST_ORGS)
+
     # TODO duplicate functionality, make a function
     # Check if there was a good response
     if not data.get('ok'):
@@ -364,11 +365,11 @@ def list_repo(args):
                     for item in data.get('data')]
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
-    
+
     # for dat in data:
     #     print(dat["html_url"])
     return 0
-    
+
 
 
 def clone_repo(args_clone):
@@ -561,18 +562,18 @@ def remove_org(args_remove):
     # User specified both arguments: --clone <reponame> <username>
     if len(args_remove) == 1:
         orgname = args_remove[0]
-        
+
         # Get the repository
         res = requests.get(f"{SERVER}/api/v1/orgs/{orgname}")
 
         # Case repo does not exist
         if res.status_code == 404:
             print(f"[ ERROR ] Organization '{orgname}' not found...")
-            
+
             # Get all organizations
             res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
             data = json.loads(res.content)
-            
+
             # TODO Duplicate Data....
             # Check if there was a good response
             if not data:
@@ -693,6 +694,100 @@ def remove_org(args_remove):
 
     return 0
 
+def edit_desc(args_clone):
+    """Edit description in repo."""
+    target_dir = CURDIR.resolve()
+
+    # User specified both arguments: --clone <reponame> <username>
+    if len(args_clone) == 2:
+        reponame, username = args_clone
+
+        # Does the username exist?
+        res = requests.get(f"{SERVER}/api/v1/users/{username}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            sys.exit(1)
+
+        # Does the <repository> of <user> exist?
+        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            sys.exit(1)
+
+        # Everything OK, edit description
+        description = input(f"Write a description for {reponame}: ")
+        repo_headers = {'Authorization': GITEA_TOKEN,
+                        'accept': 'application/json',
+                        'Content-Type': 'application/json'}
+
+        repo_data = {
+            'description': description}
+
+        res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}",
+                                headers=repo_headers,
+                                json=repo_data)
+        if res.status_code != 200:
+            print("[ ERROR ] ")
+            sys.exit(1)
+
+        print("[ INFO ] DONE")
+        return res
+
+        # User didn't specify <username>: --clone <reponame>
+    elif len(args_clone) == 1:
+        reponame = args_clone[0]
+        res = requests.get(
+            f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        # print(f"[ DEBUG ] res: {res}")
+
+        data = json.loads(res.content)
+
+        # Check if there was a good response
+        if not data.get('ok'):
+            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            sys.exit(1)
+        elif not data.get('data'):
+            print(
+                f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            sys.exit(1)
+
+        # Data acquired, list all found repos in nice table
+        headers = ('id', 'repository', 'user', 'description')
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                   for item in data.get('data')]
+        tbl = columnar(results, headers, no_borders=True)
+        print(tbl)
+
+        # Ask for repo ID
+        answer = input("Enter repo ID: ")
+        if not answer:
+            print("[ ERROR ] You have to write an ID")
+            sys.exit(1)
+        elif not answer.isdigit():
+            print(
+                "[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            sys.exit(1)
+
+        # Get the right repo by it's ID
+        repo_id = int(answer)
+        selected_repository = [ls for ls in results if ls[0] == repo_id]
+
+        # User made a mistake and entered number is not one of the listed repo IDs
+        if len(selected_repository) == 0:
+            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            sys.exit(1)
+
+        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
+        elif len(selected_repository) > 1:
+            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+                  f"Like really... Len is: {len(selected_repository)}")
+            sys.exit(1)
+
+        print(f"[ INFO ] Editing ID: {repo_id}")
+        reponame, username = selected_repository[0][1], selected_repository[0][2]
+        edit_desc([reponame, username])
+        return 0
+
 
 # ====================================
 # =           MAIN PROGRAM           =
@@ -732,6 +827,10 @@ if __name__ == '__main__':
 
     elif args.remove_org:
         remove_org(list(args.remove_org))
+        sys.exit()
+
+    elif args.edit:
+        edit_desc(args.edit)
         sys.exit()
 
     # elif args.transfer:
