@@ -160,7 +160,6 @@ def deploy(args):
     # BASH
     # Proste jen hodi na misto, smaze .git a udela link
 
-
     return 0
 
 
@@ -258,8 +257,6 @@ def create_repo(args_create):
         # 'gitignores': 'Evektor',
         'private': False
     }
-    # print("DEBUG: username:", username)
-    # print("DEBUG: repo:", repo)
 
     # User entered third argument: username. Only users with admin right can create repos anywhere
     if type(args_create) == 'list' and len(args_create) == 3:
@@ -290,9 +287,9 @@ def create_repo(args_create):
         answer = input("Clone into current folder? [Y/n]: ")
         if answer.lower() in ['y', 'yes']:
             Repo.clone_from(url=f"{SERVER}/{username}/{repo}",
-                           to_path=Path(CURDIR.resolve() / repo).resolve(),
-                           branch='master',
-                           progress=Progress())
+                            to_path=Path(CURDIR.resolve() / repo).resolve(),
+                            branch='master',
+                            progress=Progress())
 
         print("[ INFO ] DONE")
         sys.exit(0)
@@ -340,11 +337,11 @@ def list_org():
 
     return 0
 
+
 def list_repo(args):
     """Function for listing directories."""
     res = requests.get(f"{SERVER}/api/v1/repos/search")
     data = json.loads(res.content)
-    print(LIST_ORGS)
 
     # TODO duplicate functionality, make a function
     # Check if there was a good response
@@ -359,17 +356,16 @@ def list_repo(args):
     headers = ('id', 'repository', 'user', 'description')
     if len(args) == 1:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                    for item in data.get('data') if item['owner']['login'].lower() == args[0].lower()]
+                   for item in data.get('data') if item['owner']['login'].lower() == args[0].lower()]
     else:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                    for item in data.get('data')]
+                   for item in data.get('data')]
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
 
     # for dat in data:
     #     print(dat["html_url"])
     return 0
-
 
 
 def clone_repo(args_clone):
@@ -558,7 +554,6 @@ def remove_repo(args_remove):
 
 def remove_org(args_remove):
     """Remove repository from gitea"""
-
     # User specified both arguments: --clone <reponame> <username>
     if len(args_remove) == 1:
         orgname = args_remove[0]
@@ -584,7 +579,7 @@ def remove_org(args_remove):
             # Data acquired, list all found repos in nice table
             headers = ('id', 'org', 'description')
             results = [[item['id'], item['username'], item['description']]
-                    for item in data]
+                       for item in data]
             tbl = columnar(results, headers, no_borders=True, wrap_max=0)
             print(tbl)
 
@@ -609,7 +604,7 @@ def remove_org(args_remove):
             # Something went wrong. There should not be len > 1... Where's the mistake in the code?
             elif len(selected_organization) > 1:
                 print(f"[ ERROR ] Beware! len(selected_organization) > 1... That's weird... "
-                    f"Like really... Len is: {len(selected_organization)}")
+                      f"Like really... Len is: {len(selected_organization)}")
                 sys.exit(1)
 
             print(f"[ INFO ] Selected ID: {org_id}")
@@ -694,10 +689,9 @@ def remove_org(args_remove):
 
     return 0
 
+
 def edit_desc(args_clone):
     """Edit description in repo."""
-    target_dir = CURDIR.resolve()
-
     # User specified both arguments: --clone <reponame> <username>
     if len(args_clone) == 2:
         reponame, username = args_clone
@@ -724,8 +718,8 @@ def edit_desc(args_clone):
             'description': description}
 
         res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}",
-                                headers=repo_headers,
-                                json=repo_data)
+                             headers=repo_headers,
+                             json=repo_data)
         if res.status_code != 200:
             print("[ ERROR ] ")
             sys.exit(1)
@@ -839,26 +833,10 @@ if __name__ == '__main__':
     #     # transfer_repo()
     #     sys.exit()
 
-    # # elif args.transfer:
-    # #     transfer_repo()
-    # #     sys.exit()
-
     elif args.list_repo:
         list_repo(args.list_repo)
         sys.exit()
 
-    # elif args.create_org_repo:
-    #     create_repo_org(args.create_org_repo)
-    #     sys.exit()
-
     elif args.list_org is True:
         list_org()
         sys.exit()
-
-    # user = Person()
-    # user.name = 'Jan Verner'
-    # user.age = 99
-    # print("DEBUG: user:", user)
-
-    # user2 = Person('Petr Tinka', 99)
-    # print("DEBUG: user2:", user2)
