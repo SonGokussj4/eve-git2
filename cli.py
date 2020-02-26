@@ -29,13 +29,15 @@ def get_parser():
     """Return parser with arguments."""
     parser = argparse.ArgumentParser()
     parser.formatter_class = CustomHelpFormatter
+    parser.version = __version__
     parser.description = """
 Description:
    <Ideally one line description of the program>
 
 """
-    parser.add_argument('--version', action='version',
-                        version=f'%(prog)s: {__version__}')
+    parser.add_argument('-v', action='count', help="Verbal")
+
+    parser.add_argument('-V', '--version', action='version')
 
     parser.add_argument('--details', dest='details', action='store_true',
                         help="Optional... Show details when listing repos/orgs")
@@ -50,6 +52,12 @@ Description:
     group.add_argument('--list_org', dest='list_org',
                        action="store_true",
                        help='Show all organizations')
+
+    group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
+                       action=required_length(1, 3),
+                       metavar=('repository', 'username'),
+                       # choices=['master', 'next'],
+                       help='Deploy program')
 
     # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
     #                    nargs=1, help='Show <organization> repositories.')
@@ -110,3 +118,15 @@ def required_length(nmin, nmax):
             if nmin == 0 and len(values) == 0:
                 setattr(args, self.dest, 'empty')
     return RequiredLength
+
+
+# class VerboseStore(argparse.Action):
+#     def __init__(self, option_strings, dest, nargs=None, **kwargs):
+#         if nargs is not None:
+#             raise ValueError('nargs not allowed')
+#         super(VerboseStore, self).__init__(option_strings, dest, **kwargs)
+
+#     def __call__(self, parser, namespace, values, option_string=None):
+#         print('Here I am, setting the ' \
+#               'values %r for the %r option...' % (values, option_string))
+#         setattr(namespace, self.dest, values)

@@ -827,6 +827,10 @@ if __name__ == '__main__':
         edit_desc(args.edit)
         sys.exit()
 
+    elif args.deploy:
+        deploy(args.deploy)
+        sys.exit()
+
     # elif args.transfer:
     #     print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
     #     print("[ INFO ] Exitting now...")
