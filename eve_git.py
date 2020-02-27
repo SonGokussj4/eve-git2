@@ -109,7 +109,7 @@ def deploy(args):
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         target_dir = SKRIPTY_DIR / reponame
-        print("DEBUG: target_dir:", target_dir)
+        print(f"[ DEBUG ] target_dir: {target_dir}")
 
         # Create target_dir if it does not exists
         if not target_dir.exists():
@@ -130,7 +130,7 @@ def deploy(args):
 
         # Rsync all the things
         cmd = 'rsync -avh --progress --remove-source-files /tmp/dochazka/ ar-sword:/expSW/SOFTWARE/skripty/dochazka'
-        print("DEBUG: shlex(cmd):", shlex.split(cmd))
+        print(f"[ DEBUG ] shlex.split(cmd): {shlex.split(cmd)}")
         res = sp.call(shlex.split(cmd))
         if res != 0:
             print("[ ERROR ] Something went wrong with rsync...")
