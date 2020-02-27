@@ -1,6 +1,7 @@
 """Command Line Interface (CLI) Class"""
 
 import argparse
+from argcomplete.completers import ChoicesCompleter
 
 # =================================
 # =           CONSTANTS           =
@@ -55,11 +56,11 @@ Description:
                        action="store_true",
                        help='Show all organizations')
 
-    parser_deploy = subparsers.add_parser('sdeploy')
-    parser_deploy.add_argument('repository')
-    parser_deploy.add_argument('username')
-    parser_deploy.add_argument('branch')
-    parser_create = subparsers.add_parser('create')
+    parser_create = subparsers.add_parser('create', help='Crate something...')
+    parser_deploy = subparsers.add_parser('sdeploy', help='Deploy something..')
+    parser_deploy.add_argument('repository', help='Deploy repo?').completer = ChoicesCompleter(('repository', 'username', 'branch'))
+    parser_deploy.add_argument('username', help='User to be selected')
+    parser_deploy.add_argument('branch', help='Reponame, what else')
 
     group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
                        action=required_length(1, 3),

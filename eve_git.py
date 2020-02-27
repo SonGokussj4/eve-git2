@@ -29,6 +29,7 @@ from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import Fore  # https://pypi.org/project/colorama/
 from tqdm import tqdm  # https://pypi.org/project/tqdm/
 from click import style  # https://pypi.org/project/click/
+import argcomplete  # https://github.com/kislyuk/argcomplete
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
@@ -789,6 +790,7 @@ def edit_desc(args_clone):
 if __name__ == '__main__':
 
     parser = cli.get_parser()
+    argcomplete.autocomplete(parser)
     args = parser.parse_args()
 
     print("--------------------------------------------------------------------------------")
@@ -805,42 +807,32 @@ if __name__ == '__main__':
 
     if args.create:
         create_repo(args.create)
-        sys.exit()
 
     elif args.create_org:
         create_org(args.create_org)
-        sys.exit()
 
     elif args.clone:
         clone_repo(args.clone)
-        sys.exit()
 
     elif args.remove:
         remove_repo(args.remove)
-        sys.exit()
 
     elif args.remove_org:
         remove_org(list(args.remove_org))
-        sys.exit()
 
     elif args.edit:
         edit_desc(args.edit)
-        sys.exit()
 
     elif args.deploy:
         deploy(args.deploy)
-        sys.exit()
 
     # elif args.transfer:
     #     print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
     #     print("[ INFO ] Exitting now...")
     #     # transfer_repo()
-    #     sys.exit()
 
     elif args.list_repo:
         list_repo(args.list_repo)
-        sys.exit()
 
     elif args.list_org is True:
         list_org()
-        sys.exit()
