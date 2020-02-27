@@ -19,7 +19,34 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
 
     def __init__(self, prog):
         super(CustomHelpFormatter, self).__init__(
-            prog, max_help_position=80, width=80)
+            prog, max_help_position=80, width=120)
+
+    # Remove unnecessary '<Commands>' line in '-h'
+    # Source: https://stackoverflow.com/a/48051233/4574809
+    def _format_action(self, action):
+            result = super()._format_action(action)
+            if isinstance(action, argparse._SubParsersAction):
+                # fix indentation on first line
+                return f"{self._current_indent * ' '}{result.lstrip()}"
+            return result
+
+    def _format_action_invocation(self, action):
+        if isinstance(action, argparse._SubParsersAction):
+            # remove metavar and help line
+            return ""
+        return super()._format_action_invocation(action)
+
+    def _iter_indented_subactions(self, action):
+        if isinstance(action, argparse._SubParsersAction):
+            try:
+                get_subactions = action._get_subactions
+            except AttributeError:
+                pass
+            else:
+                # remove indentation
+                yield from get_subactions()
+        else:
+            yield from super()._iter_indented_subactions(action)
 
 
 # =================================
@@ -28,14 +55,29 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
 def get_parser():
     """Return parser with arguments."""
     parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
     parser.formatter_class = CustomHelpFormatter
+
+    parser.version = __version__
     parser.description = """
 Description:
    <Ideally one line description of the program>
 
 """
-    parser.add_argument('--version', action='version',
-                        version=f'%(prog)s: {__version__}')
+    # https://pymotw.com/2/argparse/#nesting-parsers
+    parser_create = subparsers.add_parser('create', help='Subparser Help: create')
+    parser_create.add_argument('repository', help='Help for <repository>')
+    parser_create.add_argument('description', help='Help for <description>')
+
+    parser_deploy = subparsers.add_parser('sdeploy', help='Subparser Help: sdeploy')
+    parser_deploy.add_argument('repository', help='Help for <repository>')
+    parser_deploy.add_argument('username', help='Help for <username>')
+    parser_deploy.add_argument('branch', help='Help for <branch>')
+
+    # SUBPARSERS
+    parser.add_argument('-v', action='count', help="Verbal")
+
+    parser.add_argument('-V', '--version', action='version')
 
     parser.add_argument('--details', dest='details', action='store_true',
                         help="Optional... Show details when listing repos/orgs")
@@ -50,6 +92,12 @@ Description:
     group.add_argument('--list_org', dest='list_org',
                        action="store_true",
                        help='Show all organizations')
+
+    group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
+                       action=required_length(1, 3),
+                       metavar=('repository', 'username'),
+                       # choices=['master', 'next'],
+                       help='Deploy project <repository> to production')
 
     # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
     #                    nargs=1, help='Show <organization> repositories.')
@@ -110,3 +158,15 @@ def required_length(nmin, nmax):
             if nmin == 0 and len(values) == 0:
                 setattr(args, self.dest, 'empty')
     return RequiredLength
+
+
+# class VerboseStore(argparse.Action):
+#     def __init__(self, option_strings, dest, nargs=None, **kwargs):
+#         if nargs is not None:
+#             raise ValueError('nargs not allowed')
+#         super(VerboseStore, self).__init__(option_strings, dest, **kwargs)
+
+#     def __call__(self, parser, namespace, values, option_string=None):
+#         print('Here I am, setting the ' \
+#               'values %r for the %r option...' % (values, option_string))
+#         setattr(namespace, self.dest, values)

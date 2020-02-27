@@ -10,7 +10,11 @@
 import os
 import sys
 import json
+import shlex
+import shutil
+import filecmp
 import getpass
+import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
 import requests
@@ -24,10 +28,10 @@ except ModuleNotFoundError:
     sys.exit()
 
 # Pip Libs
-from git import Repo, RemoteProgress  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
+from git import Repo  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
 from columnar import columnar  # https://pypi.org/project/Columnar/
-from colorama import Fore  # https://pypi.org/project/colorama/
-from tqdm import tqdm  # https://pypi.org/project/tqdm/
+# from colorama import Fore  # https://pypi.org/project/colorama/
+# from tqdm import tqdm  # https://pypi.org/project/tqdm/
 from click import style  # https://pypi.org/project/click/
 
 # You have to run this script with python >= 3.7
@@ -46,82 +50,13 @@ SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = cfg.Server.url
 GITEA_TOKEN = cfg.Server.gitea_token
+SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty")
 
 
 # ===============================
 # =           CLASSES           =
 # ===============================
-class Progress(RemoteProgress):
-    """Show ProgressBar when clonning remote repo.
-
-    Original code:
-        https://github.com/hooyao/github-org-backup-tool/blob/master/utils.py
-    """
-
-    pbar_dict = dict()
-    last_pbar = None
-
-    last_op_code = None
-    last_pos = None
-    op_names = {RemoteProgress.COUNTING: 'Counting objects',
-                RemoteProgress.COMPRESSING: 'Compressing objects',
-                RemoteProgress.WRITING: 'Writing objects',
-                RemoteProgress.RECEIVING: 'Receiving objects',
-                RemoteProgress.RESOLVING: 'Resolving deltas',
-                RemoteProgress.FINDING_SOURCES: 'Finding sources',
-                RemoteProgress.CHECKING_OUT: 'Checking out files'}
-    max_msg_len = 0
-    for i, (key, value) in enumerate(op_names.items()):
-        if len(value) > max_msg_len:
-            max_msg_len = len(value)
-    for i, (key, value) in enumerate(op_names.items()):
-        if len(value) < max_msg_len:
-            appended_value = value + (' ' * (max_msg_len - len(value)))
-            op_names[key] = appended_value
-
-    def update(self, op_code, cur_count, max_count=None, message=''):
-        if op_code in self.op_names:
-            op_name = self.op_names[op_code]
-            if self.last_op_code is None or self.last_op_code != op_code:
-                if self.last_pbar is not None:
-                    self.last_pbar.close()
-                self.last_pbar = tqdm(total=max_count, unit='item', desc=op_name,
-                                      bar_format="%s{l_bar}%s%s{bar}%s{r_bar}" %
-                                                 (Fore.GREEN, Fore.RESET, Fore.BLUE, Fore.RESET))
-                self.last_pos = 0
-                self.last_op_code = op_code
-            pbar = self.last_pbar
-            last_pos = self.last_pos
-            diff = cur_count - last_pos
-            pbar.update(diff)
-            self.last_pbar = pbar
-            self.last_op_code = op_code
-            self.last_pos = cur_count
-
-
-# TODO: Priklad decoratoru
-
-# def authenticated_only(method):
-#     def decorated(*args, **kwargs):
-#         if check_authenticated(kwargs['user']):
-#             return method(*args, **kwargs)
-#         else:
-#             raise UnauthenticatedError
-#     return decorated
-
-# def authorized_only(method):
-#     def decorated(*args, **kwargs):
-#         if check_authorized(kwargs['user'], kwargs['action']):
-#             return method(*args, **kwargs)
-#         else:
-#             raise UnauthorizedError
-#     return decorated
-
-
-# @authorized_only
-# @authenticated_only
-# def execute(action, *args, **kwargs):
-#     return action()
+from progress import Progress
 
 
 # =================================
@@ -129,6 +64,136 @@ class Progress(RemoteProgress):
 # =================================
 def deploy(args):
     print(f"[ INFO ] Deploying... args: '{args}'")
+
+    # User specified both arguments: --clone <reponame> <username>
+    if len(args) >= 2:
+        branch = 'master'
+        if len(args) == 3:
+            reponame, username, branch = args
+        else:
+            reponame, username = args
+
+        # Does the username exist?
+        res = requests.get(f"{SERVER}/api/v1/users/{username}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            sys.exit(1)
+
+        # Does the <repository> of <user> exist?
+        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
+        if res.status_code != 200:
+            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            sys.exit(1)
+
+        # Everything OK, clone the repository to /tmp/<reponame>
+        tmp_dir = Path('/tmp') / reponame
+        print("DEBUG: tmp_dir:", tmp_dir)
+
+        # If folder exists, delete
+        if tmp_dir.exists():
+            print(f"[ WARNING ] '{tmp_dir}' already exists. Removing.")
+            # res = shutil.rmtree(tmp_dir, ignore_errors=True)
+            res = shutil.rmtree(tmp_dir)
+
+        # Clone repo
+        repo = Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
+                                   to_path=tmp_dir.resolve(),
+                                   progress=Progress())
+        print(f"[ INFO ] Clonning to '{tmp_dir}' DONE")
+        print(f"[ DEBUG ] repo: {repo}")
+
+        # Remove .git folder
+        print(f"[ DEBUG ] Removing '.git' folder")
+        res = shutil.rmtree(tmp_dir / '.git')
+        print(f"[ DEBUG ] Removing '.git' folder ... DONE")
+
+        # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
+        target_dir = SKRIPTY_DIR / reponame
+        print("DEBUG: target_dir:", target_dir)
+
+        # Create target_dir if it does not exists
+        if not target_dir.exists():
+            target_dir.mkdir(exist_ok=True)
+            print(f"[ DEBUG ] {target_dir} created.")
+
+        # Check for different in 'requirements.txt' file(s)
+        src_requirements = tmp_dir / 'requirements.txt'
+        if src_requirements.exists():
+            dst_requirements = target_dir / 'requirements.txt'
+            similar = filecmp.cmp(src_requirements, dst_requirements)
+            if not similar:
+                print("[ WARNING ] BEWARE. requirements.txt are different. Please 'pip install -r requirements.txt' changes.")
+
+        # TODO check req, mount/create .env, ... all this stuff
+
+        # Ask if they are SURE
+
+        # Rsync all the things
+        cmd = 'rsync -avh --progress --remove-source-files /tmp/dochazka/ ar-sword:/expSW/SOFTWARE/skripty/dochazka'
+        print("DEBUG: shlex(cmd):", shlex.split(cmd))
+        res = sp.call(shlex.split(cmd))
+        if res != 0:
+            print("[ ERROR ] Something went wrong with rsync...")
+            return 1
+
+        # Cleanup
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+        # Check the description for 'what to do with .executable files and so on...'
+        print(f'[ INFO ] DONE')
+        return 0
+
+    # User didn't specify <username>: --clone <reponame>
+    elif len(args) == 1:
+        reponame = args[0]
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        print(f"[ DEBUG ] res: {res}")
+
+        data = json.loads(res.content)
+
+        # Check if there was a good response
+        if not data.get('ok'):
+            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            return 1
+        elif not data.get('data'):
+            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            return 1
+
+        # Data acquired, list all found repos in nice table
+        headers = ('id', 'repository', 'user', 'description')
+        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+                   for item in data.get('data')]
+        tbl = columnar(results, headers, no_borders=True)
+        print(tbl)
+
+        # Ask for repo ID
+        answer = input("Enter repo ID: ")
+        if not answer:
+            print("[ ERROR ] You have to write an ID")
+            return 1
+        elif not answer.isdigit():
+            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            return 1
+
+        # Get the right repo by it's ID
+        repo_id = int(answer)
+        selected_repository = [ls for ls in results if ls[0] == repo_id]
+
+        # User made a mistake and entered number is not one of the listed repo IDs
+        if len(selected_repository) == 0:
+            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            sys.exit(1)
+
+        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
+        elif len(selected_repository) > 1:
+            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+                  f"Like really... Len is: {len(selected_repository)}")
+            sys.exit(1)
+
+        print(f"[ INFO ] Deploying ID: {repo_id}")
+        reponame, username = selected_repository[0][1], selected_repository[0][2]
+        deploy([reponame, username])
+        return 0
 
     # Args nejspis "reponame" "username"
 
@@ -295,26 +360,27 @@ def create_repo(args_create):
         sys.exit(0)
 
 
-# TODO: trnasfer chybel v lokalni gitea (https://gitea.avalon.konstru.evektor.cz/api/swagger)
-# TODO: bude ve verzi 1.12.0
-# def transfer_repo():
-#     """To tranfer repo to some organization """
+def transfer_repo():
+    """To tranfer repo to some organization"""
+    # TODO: bude ve verzi 1.12.0
+    # TODO: trnasfer chybel v lokalni gitea (https://gitea.avalon.konstru.evektor.cz/api/swagger)
 
-#     reponame = "Test"
-#     description = "Test3"
-#     private = False
-#     organization = "P135"
-#     print("Server: ", SERVER)
-#     print("TOKEN: ", GITEA_TOKEN)
+    reponame = "Test"
+    description = "Test3"
+    private = False
+    organization = "P135"
+    print("Server: ", SERVER)
+    print("TOKEN: ", GITEA_TOKEN)
 
-#     repo_data = {'new_owner': organization}
-#     # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
-#     #                 'Authorization': 'token ACCESS_TOKEN'}
-#     res = requests.post(
-#         f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
-#         headers=repo_headers, json=repo_data)
-#     print(res)
-#     print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
+    repo_data = {'new_owner': organization}
+    # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
+    #                 'Authorization': 'token ACCESS_TOKEN'}
+    res = requests.post(
+        f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
+        headers=repo_headers, json=repo_data)
+    print(res)
+    print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
+    pass
 
 
 def list_org():
@@ -825,6 +891,10 @@ if __name__ == '__main__':
 
     elif args.edit:
         edit_desc(args.edit)
+        sys.exit()
+
+    elif args.deploy:
+        deploy(args.deploy)
         sys.exit()
 
     # elif args.transfer:
