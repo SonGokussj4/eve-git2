@@ -176,24 +176,27 @@ def deploy(args):
             print(f"[ WARNING ] +-- Message: '{e}'")
             os.system(f'rmdir /S /Q "{tmp_dir}"')
 
-        print("[ INFO ] Loading 'config.ini'")
+        print("[ INFO ] Trying to load 'config.ini'")
         # Load up 'config.ini'
         config = configparser.ConfigParser(allow_no_value=True)
-        config.read(f'{SKRIPTY_DIR}\\{reponame}\\config.ini')
-
-        print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
-        # Make links
-        for section in config.sections():
-            for key in config[section].keys():
-                if section == 'link':
-                    link_src = SKRIPTY_DIR / reponame / key
-                    link_dst = SKRIPTY_DIR / config[section][key]
-                    print(f"[ DEBUG ] Doing... 'ln -s {link_src} {link_dst}'")
-                    pass
-                elif section == 'executable':
-                    executable_file = SKRIPTY_DIR / reponame / key
-                    print(f"[ DEBUG ] Doing... chmod +x {executable_file}")
-                    pass
+        config_ini = SKRIPTY_DIR / reponame / 'config.ini'
+        res = config.read(config_ini)
+        if res:
+            print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
+            # Make links
+            for section in config.sections():
+                for key in config[section].keys():
+                    if section == 'link':
+                        link_src = SKRIPTY_DIR / reponame / key
+                        link_dst = SKRIPTY_DIR / config[section][key]
+                        print(f"[ DEBUG ] Doing: 'ln -s {link_src} {link_dst}'")
+                        pass
+                    elif section == 'executable':
+                        executable_file = SKRIPTY_DIR / reponame / key
+                        print(f"[ DEBUG ] Doing: chmod +x {executable_file}")
+                        pass
+        else:
+            print('[ INFO ] config.ini not found. Ignoring.')
 
         # Check the description for 'what to do with .executable files and so on...'
         print(f'[ INFO ] DONE')
