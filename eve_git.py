@@ -14,6 +14,7 @@ import shlex
 import shutil
 import filecmp
 import getpass
+import configparser
 import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
@@ -33,6 +34,7 @@ from columnar import columnar  # https://pypi.org/project/Columnar/
 # from colorama import Fore  # https://pypi.org/project/colorama/
 # from tqdm import tqdm  # https://pypi.org/project/tqdm/
 from click import style  # https://pypi.org/project/click/
+# from profilehooks import profile, timecall, coverage
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
@@ -50,7 +52,8 @@ SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = cfg.Server.url
 GITEA_TOKEN = cfg.Server.gitea_token
-SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty")
+SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty") if os.name != 'nt' else Path("C:\\skripty")
+SKRIPTY_SERVER = 'ar-sword:' if os.name != 'nt' else ''
 
 
 # ===============================
@@ -93,51 +96,104 @@ def deploy(args):
         if tmp_dir.exists():
             print(f"[ WARNING ] '{tmp_dir}' already exists. Removing.")
             # res = shutil.rmtree(tmp_dir, ignore_errors=True)
-            res = shutil.rmtree(tmp_dir)
+            try:
+                res = shutil.rmtree(tmp_dir)
+            except Exception as e:
+                print(f"[ ERROR ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+                print(f"[ ERROR ] +-- Message: '{e}'")
+                os.system(f'rmdir /S /Q "{tmp_dir}"')
 
         # Clone repo
         repo = Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
                                    to_path=tmp_dir.resolve(),
+                                   branch=branch,
                                    progress=Progress())
         print(f"[ INFO ] Clonning to '{tmp_dir}' DONE")
         print(f"[ DEBUG ] repo: {repo}")
 
         # Remove .git folder
         print(f"[ DEBUG ] Removing '.git' folder")
-        res = shutil.rmtree(tmp_dir / '.git')
+        git_folder = tmp_dir / '.git'
+        try:
+            res = shutil.rmtree(git_folder)
+        except Exception as e:
+            print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+            print(f"[ WARNING ] +-- Message: '{e}'")
+            os.system(f'rmdir /S /Q "{git_folder}"')
+
         print(f"[ DEBUG ] Removing '.git' folder ... DONE")
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         target_dir = SKRIPTY_DIR / reponame
-        print(f"[ DEBUG ] target_dir: {target_dir}")
 
         # Create target_dir if it does not exists
         if not target_dir.exists():
             target_dir.mkdir(exist_ok=True)
             print(f"[ DEBUG ] {target_dir} created.")
 
-        # Check for different in 'requirements.txt' file(s)
+        # Check for differences in 'requirements.txt' file(s)
         src_requirements = tmp_dir / 'requirements.txt'
+        print(f"src_requirements: {src_requirements}")
         if src_requirements.exists():
             dst_requirements = target_dir / 'requirements.txt'
-            similar = filecmp.cmp(src_requirements, dst_requirements)
-            if not similar:
-                print("[ WARNING ] BEWARE. requirements.txt are different. Please 'pip install -r requirements.txt' changes.")
+            if not dst_requirements.exists():
+                print("[ INFO ] Ignoring comparison, have to install '.env' and all 'PIP libs'.")
+            else:
+                similar = filecmp.cmp(src_requirements, dst_requirements)
+                if not similar:
+                    print("[ WARNING ] BEWARE. requirements.txt are different. Please 'pip install -r requirements.txt' changes.")
 
         # TODO check req, mount/create .env, ... all this stuff
 
         # Ask if they are SURE
 
         # Rsync all the things
-        cmd = 'rsync -avh --progress --remove-source-files /tmp/dochazka/ ar-sword:/expSW/SOFTWARE/skripty/dochazka'
+        # --delete ... for files that are not present in the current...
+        cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
         print(f"[ DEBUG ] shlex.split(cmd): {shlex.split(cmd)}")
-        res = sp.call(shlex.split(cmd))
-        if res != 0:
-            print("[ ERROR ] Something went wrong with rsync...")
-            return 1
+        try:
+            res = sp.call(shlex.split(cmd))
+            if res != 0:
+                print("[ ERROR ] Something went wrong with rsync...")
+                return 1
+        except Exception as e:
+            print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
+            print(f"[ WARNING ] +-- Message: {e}")
+
+            print(f"[ INFO ] Removing '{SKRIPTY_DIR}\\{reponame}'... ")
+            os.system(f'rmdir /S /Q "{SKRIPTY_DIR}\\{reponame}"')
+
+            print(f"[ INFO ] Copying '{tmp_dir}' --> '{SKRIPTY_DIR}\\{reponame}'")
+            # dirs_exist_ok from Python3.8!!!
+            res = shutil.copytree(tmp_dir, f'{SKRIPTY_DIR}\\{reponame}', dirs_exist_ok=True)
 
         # Cleanup
-        shutil.rmtree(tmp_dir, ignore_errors=True)
+        print(f"[ INFO ] Cleanup. Removing '{tmp_dir}'")
+        try:
+            res = shutil.rmtree(tmp_dir)
+        except Exception as e:
+            print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+            print(f"[ WARNING ] +-- Message: '{e}'")
+            os.system(f'rmdir /S /Q "{tmp_dir}"')
+
+        print("[ INFO ] Loading 'config.ini'")
+        # Load up 'config.ini'
+        config = configparser.ConfigParser(allow_no_value=True)
+        config.read(f'{SKRIPTY_DIR}\\{reponame}\\config.ini')
+
+        print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
+        # Make links
+        for section in config.sections():
+            for key in config[section].keys():
+                if section == 'link':
+                    link_src = SKRIPTY_DIR / reponame / key
+                    link_dst = SKRIPTY_DIR / config[section][key]
+                    print(f"[ DEBUG ] Doing... 'ln -s {link_src} {link_dst}'")
+                    pass
+                elif section == 'executable':
+                    executable_file = SKRIPTY_DIR / reponame / key
+                    print(f"[ DEBUG ] Doing... chmod +x {executable_file}")
+                    pass
 
         # Check the description for 'what to do with .executable files and so on...'
         print(f'[ INFO ] DONE')
