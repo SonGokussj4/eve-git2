@@ -52,7 +52,8 @@ SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SERVER = cfg.Server.url
 GITEA_TOKEN = cfg.Server.gitea_token
-SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty") if os.name != 'nt' else Path("C:\\skripty")
+SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty") if os.name != 'nt' else Path("C:/skripty")
+SKRIPTY_EXE = Path("/expSW/SOFTWARE/bin") if os.name != 'nt' else Path("C:/bin")
 SKRIPTY_SERVER = 'ar-sword:' if os.name != 'nt' else ''
 
 
@@ -133,19 +134,67 @@ def deploy(args):
 
         # Check for differences in 'requirements.txt' file(s)
         src_requirements = tmp_dir / 'requirements.txt'
-        print(f"src_requirements: {src_requirements}")
+
+        venv_create_new = True
+        venv_reinstall_req = False
         if src_requirements.exists():
             dst_requirements = target_dir / 'requirements.txt'
             if not dst_requirements.exists():
                 print("[ INFO ] Ignoring comparison, have to install '.env' and all 'PIP libs'.")
+                venv_create_new = True
             else:
                 similar = filecmp.cmp(src_requirements, dst_requirements)
                 if not similar:
                     print("[ WARNING ] BEWARE. requirements.txt are different. Please 'pip install -r requirements.txt' changes.")
+                    venv_reinstall_req = True
 
         # TODO check req, mount/create .env, ... all this stuff
+        if venv_create_new == True:
+            print("[ INFO ] Creating new .env")
+            # Unmount /expSW/SOFTWARE
+            # Mount custom one
+            # Rsync needed python
+            # make python -m venv .env command
+            # activate venv
+            # Upgrade pip
+            # if requirements, install them: pip install -r requirements
+            # deactivate
+            # [delete all local python files]
+            # mount {SKRIPTY_SERVER} back
+            con = configparser.ConfigParser(allow_no_value=True)
+            os.chdir(tmp_dir)
+            con_ini = 'config.ini'
+            # con_ini = tmp_dir / 'config.ini'
+            con.read(con_ini)
 
+
+            print(f">>> con['repo']['framework']: {con['repo']['framework']}")
+            cmd = f'''{con['repo']['framework']} -m venv {tmp_dir}/.env'''
+            sp.call(cmd)
+
+            # ACTIVATE
+            # print("[ INFO ] Activating .env")
+            # cmd = f'.env/Scripts/activate'
+            # print(f">>> cmd: {cmd}")
+            # sp.call(cmd)
+
+            # # UPGRADE PIP
+            # print("[ INFO ] Upgrading PIP")
+            # cmd = 'pip install --upgrade pip'
+            # sp.call(cmd)
+
+            # PIP INSTALLS
+            print("[ INFO ] Pip install -r requirements")
+            # cmd = f'pip install -r requirements'
+            cmd = f'./env/Scripts/pip.exe install -r requirements.txt'
+            sp.call(cmd)
+
+            sys.exit()
         # Ask if they are SURE
+        answer = input(f"Are you SURE you want to deploy {reponame}??? [y/N]: ")
+        if answer.lower() not in ['y', 'yes']:
+            print(f"[ INFO ] Cancelling... Nothing deployed.")
+            sys.exit(0)
 
         # Rsync all the things
         # --delete ... for files that are not present in the current...
@@ -185,11 +234,22 @@ def deploy(args):
             print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
             # Make links
             for section in config.sections():
-                for key in config[section].keys():
+                for key, val in config[section].items():
                     if section == 'link':
-                        link_src = SKRIPTY_DIR / reponame / key
-                        link_dst = SKRIPTY_DIR / config[section][key]
-                        print(f"[ DEBUG ] Doing: 'ln -s {link_src} {link_dst}'")
+                        link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
+                        link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
+                        if os.name == 'nt':
+                            print(f"[ DEBUG ] Doing: 'mklink {link_src} {link_dst}'")
+                            cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
+                            # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
+                            print(f">>> cmd: {cmd}")
+                            res = sp.call(cmd)
+                            # print(f">>> res: {res}")
+                        else:
+                            print(f"[ DEBUG ] Doing: 'ln -s {link_src} {link_dst}'")
+                            cmd = f'ln -s {link_src} {link_dst}'
+                            print(f">>> cmd: {cmd}")
+                            res = sp.call(shlex.split(cmd))
                         pass
                     elif section == 'executable':
                         executable_file = SKRIPTY_DIR / reponame / key
@@ -198,6 +258,7 @@ def deploy(args):
         else:
             print('[ INFO ] config.ini not found. Ignoring.')
 
+        print("[ DEBUG ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
         # Check the description for 'what to do with .executable files and so on...'
         print(f'[ INFO ] DONE')
         return 0
