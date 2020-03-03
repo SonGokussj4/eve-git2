@@ -2,34 +2,23 @@
 
 > Updated eve-git utility to ease working with git/gitea
 
+> CUSTOM GITIGNORE\
+> root/gitea_data/gitea/options/gitignore/Evektor
+
+
 ## Help
-```R
-usage: eve-git.py [-h] [--version] [--no-groups] [--no-color] [--img username]
-                  [--tel username [username ...]] [--id username [username ...]]
-                  [--all] [--write-db]
-                  [users [users ...]]
+```Bash
+usage: eve_git.py [-h] [--version] [--create [repository [description ...]] |
+                  --clone repository [user ...] | --remove repository
+                  [user ...]]
 
-<Ideally one line description of the program>
-
-<
-More description
-with more lines
-or examples
->
-
-positional arguments:
-  users                          Optional... <Users> (default: [])
+Description:
+   <Ideally one line description of the program>
 
 optional arguments:
-  -h, --help                     show this help message and exit
-  --version                      show program's version number and exit
-  --no-groups                    Optional... <Don't show groups> (default: False)
-  --no-color                     Optional... <Don't show colors> (default: False)
-  --img username                 Optional... <Username (one) to show picture> (default: None)
-  --tel username [username ...]  Optional... <Username (one) to show telephone> (default: None)
-  --id username [username ...]   Optional... <Username (one) to show user ID number> (default: None)
-  --all                          Optional... <Show all people> (default: False)
-  --write-db                     Developer only... <Save people into Pickled database> (default: False)
+  -h, --help                               show this help message and exit
+  --version                                show program's version number and exit
+  --create [repository [description ...]]  Create new remote [repository], [description], [user] (default: None)        --clone repository [user ...]            Clone existing <repository> [user] into current directory (default: None)    --remove repository [user ...]           Remove remote <repository> [user] (default: None)
 ```
 
 ## Installation

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ENV_NAME=".env"
-PRG_NAME="eve-git.py"
+PRG_NAME="eve_git.py"
 
 ## FIND DIRECTORY OF THE SCRIPT
 SOURCE="${BASH_SOURCE[0]}"
