@@ -35,6 +35,10 @@ from columnar import columnar  # https://pypi.org/project/Columnar/
 # from tqdm import tqdm  # https://pypi.org/project/tqdm/
 from click import style  # https://pypi.org/project/click/
 # from profilehooks import profile, timecall, coverage
+from colorama import init, Fore, Back, Style
+# Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+# Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+# Style: DIM, NORMAL, BRIGHT, RESET_ALL
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
@@ -57,6 +61,25 @@ SKRIPTY_EXE = Path("/expSW/SOFTWARE/bin") if os.name != 'nt' else Path("C:/bin")
 SKRIPTY_SERVER = 'ar-sword:' if os.name != 'nt' else ''
 
 
+# ====================================================
+# =           Exceptions without Traceback           =
+# ====================================================
+def excepthook(type, value, traceback):
+    print(value)
+
+
+sys.excepthook = excepthook
+
+
+# ==============================
+# =           COLORS           =
+# ==============================
+RCol = Style.RESET_ALL
+Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
+Gre, BGre = Fore.GREEN, f'{Fore.GREEN}{Style.BRIGHT}'
+
+
+
 # ===============================
 # =           CLASSES           =
 # ===============================
@@ -68,7 +91,6 @@ from progress import Progress
 # =================================
 def deploy(args):
     print(f"[ INFO ] Deploying... args: '{args}'")
-    sys.exit()
     # User specified both arguments: --clone <reponame> <username>
     if len(args) >= 2:
         branch = 'master'
@@ -80,15 +102,16 @@ def deploy(args):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ ERROR ] User '{username}' doesn't exist!")
-            sys.exit(1)
+            raise Exception(f"{BRed}[ ERROR ]{RCol} User '{username}' doesn't exist!")
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
             print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            sys.exit(1)
+            # sys.exit(1)
+            raise Exception(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
 
+        sys.exit()
         # Everything OK, clone the repository to /tmp/<reponame>
         tmp_dir = Path('/tmp') / reponame
         print("DEBUG: tmp_dir:", tmp_dir)
