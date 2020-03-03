@@ -68,7 +68,7 @@ from progress import Progress
 # =================================
 def deploy(args):
     print(f"[ INFO ] Deploying... args: '{args}'")
-
+    sys.exit()
     # User specified both arguments: --clone <reponame> <username>
     if len(args) >= 2:
         branch = 'master'
@@ -366,7 +366,7 @@ def create_org(args):
         sys.exit(1)
 
     desc = input(f'Organization description [{description}]: ')
-    desc = description if not desc else desc
+    desc = f'{description}\n' if not desc else desc
     if not desc:
         print(f"[ ERROR ] You have to specify organization description.")
         sys.exit(1)
