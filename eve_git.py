@@ -526,7 +526,13 @@ def list_org():
 
 def list_repo(args):
     """Function for listing directories."""
-    res = requests.get(f"{SERVER}/api/v1/repos/search")
+    reponame, username = '', ''
+    if len(args) == 1:
+        reponame = args[0]
+    elif len(args) == 2:
+        reponame, username = args
+
+    res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc&limit=50")
     data = json.loads(res.content)
 
     # TODO duplicate functionality, make a function
@@ -540,17 +546,20 @@ def list_repo(args):
 
     # Data acquired, list all found repos in nice table
     headers = ('id', 'repository', 'user', 'description')
-    if len(args) == 1:
+    results = []
+    if len(args) == 2:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data') if item['owner']['login'].lower() == args[0].lower()]
-    else:
+                   for item in data.get('data') if username in item['owner']['login']]
+        if len(results) == 0:
+            print(f"[ WARNING ] No repository with += username: '{username}' found. Listing for all users.")
+
+    if len(results) == 0 or len(args) != 2:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
+
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
 
-    # for dat in data:
-    #     print(dat["html_url"])
     return 0
 
 
