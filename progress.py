@@ -1,8 +1,8 @@
 """<DESCRIPTION OF THIS CLASS>"""
 
 from git import RemoteProgress  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
-from tqdm import tqdm
-from colorama import Fore
+from tqdm import tqdm  # https://pypi.org/project/tqdm/
+from colorama import Fore  # https://pypi.org/project/colorama/
 
 
 # ===============================
