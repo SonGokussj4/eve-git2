@@ -44,11 +44,11 @@ except ModuleNotFoundError:
 # ==============================
 RCol = Style.RESET_ALL
 Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
+Blu, BBlu = Fore.BLUE, f'{Fore.BLUE}{Style.BRIGHT}'
 Gre, BGre = Fore.GREEN, f'{Fore.GREEN}{Style.BRIGHT}'
 Bla, BBla = Fore.BLACK, f'{Fore.BLACK}{Style.BRIGHT}'
 Whi, BWhi = Fore.WHITE, f'{Fore.WHITE}{Style.BRIGHT}'
 Yel, BYel = Fore.YELLOW, f'{Fore.YELLOW}{Style.BRIGHT}'
-Blu, BBlu = Fore.BLUE, f'{Fore.BLUE}{Style.BRIGHT}'
 
 
 # You have to run this script with python >= 3.7
@@ -147,6 +147,40 @@ def deploy(args):
 
         print(f"[ {BBla}DEBUG{RCol} ] Removing '.git' folder ... DONE")
 
+
+        print(f"[ {BWhi}INFO{RCol} ] Deployment completed.")
+
+        print(f"[ {BBla}DEBUG{RCol} ] Checking 'repository.ini'")
+        # repoini = tmp_dir / 'repository.ini'
+        repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repository.ini')
+        if not repoini.exists():
+            print(f"[ INFO ] '{repoini}' not found... Ignoring making executables, symlinks, ...")
+            print(f"[ INFO ] To create a repository.ini.template, use 'eve-git template repository.ini'")
+        else:
+            print(f"[ DEBUG ] '{repoini}' found. Loading config.")
+            con = configparser.ConfigParser(allow_no_value=True)
+            con.read(repoini)
+            # print(f">>> con['repo']['framework']: {con['repo']['framework']}")
+
+            # Executable files
+            # print(con.items('executable'))
+            for key, val in con.items('Executable'):
+                exe_file = tmp_dir / key
+                if not exe_file.exists():
+                    print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repository.ini'.")
+                    continue
+                print(f"[ DEBUG ] Making '{exe_file}' executable... Permissions: 774")
+                os.chmod(exe_file, 0o774)
+
+
+
+
+
+
+
+
+        sys.exit()
+
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         target_dir = SKRIPTY_DIR / reponame
 
@@ -162,8 +196,6 @@ def deploy(args):
         print(f"[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
         res = os.system(cmd)
 
-        print(f"[ {BWhi}INFO{RCol} ] Deployment completed.")
-        sys.exit()
         # Check for differences in 'requirements.txt' file(s)
         src_requirements = tmp_dir / 'requirements.txt'
 
