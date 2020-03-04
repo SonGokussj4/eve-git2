@@ -69,7 +69,7 @@ SERVER = cfg.Server.url
 GITEA_TOKEN = cfg.Server.gitea_token
 SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty") if os.name != 'nt' else Path("C:/skripty")
 SKRIPTY_EXE = Path("/expSW/SOFTWARE/bin") if os.name != 'nt' else Path("C:/bin")
-SKRIPTY_SERVER = 'ar-sword:' if os.name != 'nt' else ''
+SKRIPTY_SERVER = 'ar-sword' if os.name != 'nt' else ''
 
 
 # ====================================================
@@ -136,25 +136,33 @@ def deploy(args):
         print(f"[ INFO ] Clonning to '{tmp_dir}' DONE")
 
         # Remove .git folder
-        print(f"[ DEBUG ] Removing '.git' folder")
+        print(f"[ {BBla}DEBUG{RCol} ] Removing '.git' folder")
         git_folder = tmp_dir / '.git'
         try:
             res = shutil.rmtree(git_folder)
         except Exception as e:
-            print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-            print(f"[ WARNING ] +-- Message: '{e}'")
+            print(f"[ {BYel}WARNING{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+            print(f"[ {BYel}WARNING{RCol} ] +-- Message: '{e}'")
             os.system(f'rmdir /S /Q "{git_folder}"')
 
-        print(f"[ DEBUG ] Removing '.git' folder ... DONE")
+        print(f"[ {BBla}DEBUG{RCol} ] Removing '.git' folder ... DONE")
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         target_dir = SKRIPTY_DIR / reponame
 
         # Create target_dir if it does not exists
         if not target_dir.exists():
-            target_dir.mkdir(exist_ok=True)
-            print(f"[ DEBUG ] {target_dir} created.")
+            cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
+            res = os.system(cmd)
+            print(f"[ {BBla}DEBUG{RCol} ] {target_dir} created.")
 
+        # Rsync all the data
+        cmd = (f'rsync -avh --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+               f'--progress {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+        print(f"[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
+        res = os.system(cmd)
+
+        print(f"[ {BWhi}INFO{RCol} ] Deployment completed.")
         sys.exit()
         # Check for differences in 'requirements.txt' file(s)
         src_requirements = tmp_dir / 'requirements.txt'
@@ -291,7 +299,7 @@ def deploy(args):
     elif len(args) == 1:
         reponame = args[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        print(f"[ DEBUG ] res: {res}")
+        # print(f"[ DEBUG ] res: {res}")
 
         data = json.loads(res.content)
 
