@@ -67,11 +67,19 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
-SERVER = cfg.Server.url
-GITEA_TOKEN = cfg.Server.gitea_token
-SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty") if os.name != 'nt' else Path("C:/skripty")
-SKRIPTY_EXE = Path("/expSW/SOFTWARE/bin") if os.name != 'nt' else Path("C:/bin")
-SKRIPTY_SERVER = 'ar-sword' if os.name != 'nt' else ''
+
+
+# ==============================
+# =           CONFIG           =
+# ==============================
+con = configparser.ConfigParser(allow_no_value=True)
+settings_files = [directory / 'eve-git.settings' for directory in (SCRIPTDIR, Path.home())]
+con.read(settings_files)
+SERVER = con['server']['url']
+GITEA_TOKEN = con['server'].get('gitea_token', '')
+SKRIPTY_DIR = con['server']['skripty_dir']
+SKRIPTY_EXE = con['server']['skripty_exe']
+SKRIPTY_SERVER = con['server']['skripty_server']
 
 
 # ====================================================
@@ -88,6 +96,7 @@ sys.excepthook = excepthook
 # =           CLASSES           =
 # ===============================
 from progress import Progress
+from utils import *
 
 
 # =================================

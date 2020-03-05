@@ -1,0 +1,5 @@
+[server]
+url = http://gitea.avalon.konstru.evektor.cz
+skripty_dir = /expSW/SOFTWARE/skripty
+skripty_exe = /expSW/SOFTWARE/bin
+skripty_server = ar-sword
