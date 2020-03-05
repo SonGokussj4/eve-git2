@@ -1136,6 +1136,8 @@ if __name__ == '__main__':
     print(f"[ DEBUG ] args: {args}")
     print("--------------------------------------------------------------------------------")
 
+    init_logging(args)
+
     # In case of no input, show help
     # if not any(vars(args).values()):
     if not len(sys.argv) > 1:
@@ -1183,6 +1185,6 @@ if __name__ == '__main__':
     #     # transfer_repo()
     #     sys.exit()
 
-    elif args.list_org is True:
-        list_org()
-        sys.exit()
+    # elif args.list_org is True:
+    #     list_org()
+    #     sys.exit()
