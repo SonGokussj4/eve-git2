@@ -57,12 +57,12 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
 def get_parser():
     """Return parser with arguments."""
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument('-v', action='count', help='Verbal')
+    common.add_argument('-v', action='count', default=None, help='Verbal')
     common.add_argument('-V', '--version', action='version')
 #     # common.add_argument('--details', dest='details', action='store_true',
 #     #                     help="Optional... Show details when listing repos/orgs")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(parents=[common])
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
     parser.formatter_class = CustomHelpFormatter
 

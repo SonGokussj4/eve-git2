@@ -630,17 +630,31 @@ def transfer_repo():
     # pass
 
 
+@traced
+@logged
 def list_org():
     """Function for listing organizations."""
-    res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
+    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] Listing organizations")
+
+    url = f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}"
+    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] url: '{url}'")
+
+    res = requests.get(url)
     if res.status_code == 403:
-        print(f"[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights...")
-        # TODO mozna to udelat tak, ze vezmu vsechny repositare a vytahnu z nich do setu vsechny org
-        # TODO pak je accessnu a vypisu zde bez nutnosti GITEA_TOKEN
-        return 1
+        msg = f"[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
+        raise Exception(msg)
+
+    elif res.status_code == 404:
+        msg = f"[ {BRed}ERROR{RCol} ] 404 - url page not found: '{url}'"
+        raise Exception(msg)
+
     elif res.status_code == 200:
-        print(f"[ INFO ] All ok. Here is the list.")
+        print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] All ok. Here is the list.")
         data = json.loads(res.content)
+
+    else:
+        msg = f"[ {BRed}ERROR{RCol} ] Unknown error"
+        raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
     headers = ('Organization', 'description')
@@ -656,9 +670,10 @@ def list_org():
 def list_repo(args):
     """Function for listing directories."""
     print(f"[{lineno()}] [ DEBUG ] Listing repo.")
-    cmd = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
+    list_repos = args.repository if args.repository is not None else ''
+    cmd = f"{SERVER}/api/v1/repos/search?q={list_repos}&sort=created&order=desc&limit=50"
     print(f"[{lineno()}] [ DEBUG ] cmd: '{cmd}'")
-    res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50")
+    res = requests.get(cmd)
     data = json.loads(res.content)
 
     # TODO duplicate functionality, make a function
