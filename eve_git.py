@@ -63,19 +63,22 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
+SETTINGS_DIRS = (SCRIPTDIR, Path.home())
+SETTINGS_FILENAME = 'eve-git.settings'
 
 
 # ==============================
 # =           CONFIG           =
 # ==============================
 cfg = configparser.ConfigParser(allow_no_value=True)
-settings_files = [directory / 'eve-git.settings' for directory in (SCRIPTDIR, Path.home())]
-cfg.read(settings_files)
+cfg.read([folder / SETTINGS_FILENAME for folder in SETTINGS_DIRS])
+
 SERVER = cfg['server']['url']
 GITEA_TOKEN = cfg['server'].get('gitea_token', '')
 SKRIPTY_DIR = Path(cfg['server']['skripty_dir'])
 SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
 SKRIPTY_SERVER = cfg['server']['skripty_server']
+DEBUG = cfg['app'].getboolean('debug')
 
 
 # ====================================================
@@ -85,7 +88,8 @@ def excepthook(type, value, traceback):
     print(value)
 
 
-sys.excepthook = excepthook
+if not DEBUG:
+    sys.excepthook = excepthook
 
 
 # ===============================
