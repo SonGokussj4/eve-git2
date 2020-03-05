@@ -8,31 +8,36 @@
 # =           LIBRARIES           =
 # =================================
 # System Libs
+#=============
 import os
 import sys
 import json
-import shlex
+# import shlex
 import shutil
 import filecmp
 import getpass
+import logging
 import fileinput
 import configparser
-import subprocess as sp
+# import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
 
 # Pip Libs
+#==========
 # from profilehooks import profile, timecall, coverage
 import requests
 from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
 from columnar import columnar  # https://pypi.org/project/Columnar/
 from click import style  # https://pypi.org/project/click/
 from colorama import init, Fore, Back, Style
+from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 # Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
 # Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
 # Style: DIM, NORMAL, BRIGHT, RESET_ALL
 
 # User Libs
+#===========
 import cli
 from utils import *
 
@@ -102,6 +107,29 @@ from progress import Progress
 # =================================
 # =           FUNCTIONS           =
 # =================================
+def init_logging(args):
+    log_level = logging.WARNING
+    if args.v:
+        if args.v == 1:
+            log_level = logging.INFO
+        elif args.v == 2:
+            log_level = logging.DEBUG
+        else:
+            log_level = TRACE
+
+    logging.basicConfig(
+        level=log_level, stream=sys.stderr,
+        format="%(levelname)s:%(filename)s,%(lineno)d:%(name)s.%(funcName)s:%(message)s")
+
+
+def lineno(msg=None):
+    if not msg:
+        return sys._getframe().f_back.f_lineno
+    print(f"[ Debug ] {sys._getframe().f_back.f_lineno}: {msg if msg is not None else ''}")
+
+
+@traced
+@logged
 def deploy(args):
     print(f"[ {BWhi}INFO{RCol}  ] Deploying... args: '{args}'")
     # User specified both arguments: --clone <reponame> <username>
@@ -623,36 +651,38 @@ def list_org():
     return 0
 
 
+@traced
+@logged
 def list_repo(args):
     """Function for listing directories."""
-    reponame, username = '', ''
-    if len(args) == 1:
-        reponame = args[0]
-    elif len(args) == 2:
-        reponame, username = args
-
-    res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc&limit=50")
+    print(f"[ DEBUG ] [{lineno()}] Listing repo.")
+    cmd = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
+    print(f"[ DEBUG ] [{lineno()}] cmd: '{cmd}'")
+    res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50")
     data = json.loads(res.content)
 
     # TODO duplicate functionality, make a function
     # Check if there was a good response
     if not data.get('ok'):
-        print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+        print(msg)
+        raise Exception(msg)
     elif not data.get('data'):
-        print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+        print(msg)
+        raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
     headers = ('id', 'repository', 'user', 'description')
     results = []
-    if len(args) == 2:
+    if args.repository and args.username:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data') if username in item['owner']['login']]
-        if len(results) == 0:
-            print(f"[ WARNING ] No repository with += username: '{username}' found. Listing for all users.")
+                   for item in data.get('data') if args.username.lower() in item['owner']['login'].lower()]
 
-    if len(results) == 0 or len(args) != 2:
+        if len(results) == 0:
+            print(f"[ {BYel}WARNING{RCol} ] No repository with += username: '{args.username}' found. Listing for all users.")
+
+    if len(results) == 0 or not any([args.repository, args.username]):
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
 
@@ -1085,6 +1115,8 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
+    init_logging(args)
+
     print("--------------------------------------------------------------------------------")
     print(f"[ DEBUG ] args: {args}")
     print("--------------------------------------------------------------------------------")
@@ -1096,6 +1128,11 @@ if __name__ == '__main__':
         print()
         parser.print_help()
         sys.exit()
+
+    try:
+        args.func(args)
+    except Exception as e:
+        print(f"func(args) Exception... {e}")
 
     if args.create:
         create_repo(args.create)
@@ -1130,10 +1167,6 @@ if __name__ == '__main__':
     #     print("[ INFO ] Exitting now...")
     #     # transfer_repo()
     #     sys.exit()
-
-    elif args.list_repo:
-        list_repo(args.list_repo)
-        sys.exit()
 
     elif args.list_org is True:
         list_org()

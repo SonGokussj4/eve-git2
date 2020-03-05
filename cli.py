@@ -1,6 +1,8 @@
 """Command Line Interface (CLI) Class"""
 
 import argparse
+import utils
+import eve_git
 
 # =================================
 # =           CONSTANTS           =
@@ -73,14 +75,19 @@ Description:
     # SUBPARSERS
     # https://pymotw.com/2/argparse/#nesting-parsers
     parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
-    parser_create.add_argument('repository', help='Help for <repository>')
-    parser_create.add_argument('description', help='Help for <description>')
+    parser_create.set_defaults(func=utils.download)
+    parser_create.add_argument('repository', nargs="?", help='Help for <repository>')
+    parser_create.add_argument('description', nargs="?", help='Help for <description>')
 
     parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', help='Help for <username>')
-    parser_deploy.add_argument('branch', help='Help for <branch>')
+    parser_deploy.add_argument('username', nargs="?", help='Help for <username>')
+    parser_deploy.add_argument('branch', nargs="?", help='Help for <branch>')
 
+    parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
+    parser_list.add_argument('repository', nargs="?", default='', help='Help for <repository>')
+    parser_list.add_argument('username', nargs="?", default='', help='Specify user/org')
+    parser_list.set_defaults(func=eve_git.list_repo)
 
     group = parser.add_mutually_exclusive_group()
 
