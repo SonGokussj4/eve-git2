@@ -632,7 +632,7 @@ def transfer_repo():
 
 @traced
 @logged
-def list_org():
+def list_org(args):
     """Function for listing organizations."""
     print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] Listing organizations")
 
@@ -671,9 +671,9 @@ def list_repo(args):
     """Function for listing directories."""
     print(f"[{lineno()}] [ DEBUG ] Listing repo.")
     list_repos = args.repository if args.repository is not None else ''
-    cmd = f"{SERVER}/api/v1/repos/search?q={list_repos}&sort=created&order=desc&limit=50"
-    print(f"[{lineno()}] [ DEBUG ] cmd: '{cmd}'")
-    res = requests.get(cmd)
+    url = f"{SERVER}/api/v1/repos/search?q={list_repos}&sort=created&order=desc&limit=50"
+    print(f"[{lineno()}] [ DEBUG ] url: '{url}'")
+    res = requests.get(url)
     data = json.loads(res.content)
 
     # TODO duplicate functionality, make a function
