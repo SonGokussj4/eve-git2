@@ -1130,8 +1130,6 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
-    init_logging(args)
-
     print("--------------------------------------------------------------------------------")
     print(f"[ DEBUG ] args: {args}")
     print("--------------------------------------------------------------------------------")
@@ -1178,13 +1176,3 @@ if __name__ == '__main__':
     elif args.deploy:
         deploy(args.deploy)
         sys.exit()
-
-    # elif args.transfer:
-    #     print("[ WARNING ] Transfer is not yet done. Because the API is broken in Gitea. For now...")
-    #     print("[ INFO ] Exitting now...")
-    #     # transfer_repo()
-    #     sys.exit()
-
-    # elif args.list_org is True:
-    #     list_org()
-    #     sys.exit()

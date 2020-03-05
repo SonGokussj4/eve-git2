@@ -72,8 +72,11 @@ Description:
    <Ideally one line description of the program>
 
 """
-    # SUBPARSERS
     # https://pymotw.com/2/argparse/#nesting-parsers
+
+    # ==================================
+    # =           SUBPARSERS           =
+    # ==================================
     parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
     parser_create.set_defaults(func=utils.download)
     parser_create.add_argument('repository', nargs="?", help='Help for <repository>')
@@ -85,29 +88,21 @@ Description:
     parser_deploy.add_argument('branch', nargs="?", help='Help for <branch>')
 
     parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
-    parser_list.add_argument('repository', nargs="?", help='Help for <repository>')
-    parser_list.add_argument('username', nargs="?", default='', help='Specify user/org')
+    parser_list.add_argument('repository', nargs="?", type=str, help='Help for <repository>')
+    parser_list.add_argument('username', nargs="?", default='', type=str, help='Specify user/org')
     parser_list.set_defaults(func=eve_git.list_repo)
 
+    parser_list_org = subparsers.add_parser('list_org', help='List all the Orgs!!!', parents=[common])
+    parser_list_org.set_defaults(func=eve_git.list_org)
+
+
     group = parser.add_mutually_exclusive_group()
-
-    group.add_argument('--list', dest='list_repo', nargs='*', type=str,
-                       action=required_length(0, 2),
-                       metavar=('username'),
-                       help='Show all repositories [of entered <user>]')
-
-    group.add_argument('--list_org', dest='list_org',
-                       action="store_true",
-                       help='Show all organizations')
 
     group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
                        action=required_length(1, 3),
                        metavar=('repository', 'username'),
                        # choices=['master', 'next'],
                        help='Deploy project <repository> to production')
-
-    # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
-    #                    nargs=1, help='Show <organization> repositories.')
 
     # group.add_argument('--info', dest='info', action='store_true',
     #                    help='Show one-line description of <project_name>')
@@ -145,11 +140,6 @@ Description:
                        metavar=('repository', 'user'),
                        help='Edit description in existing <repository> [user].')
 
-    # group.add_argument('--deploy', dest='deploy', action='store_true',
-    #                    help='Deploy <project_name> to folder')
-
-    # group.add_argument('--transfer', dest='transfer', action='store_true',
-    #                    help='Transfer <project_name> to organization')
     parser.epilog = "--- Arguments common to all sub-parsers ---" \
         + common.format_help().replace(common.format_usage(), '')
 
