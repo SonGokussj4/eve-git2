@@ -34,11 +34,7 @@ from colorama import init, Fore, Back, Style
 
 # User Libs
 import cli
-try:
-    import settings as cfg
-except ModuleNotFoundError:
-    print(f"[ {Fore.RED}{Style.BRIGHT}ERROR{Style.RESET_ALL} ] No 'settings.py' file in root directory. Rename/Modify 'settings.py.example'")
-    sys.exit()
+from utils import *
 
 
 # ==============================
@@ -72,14 +68,14 @@ CURDIR = Path('.')
 # ==============================
 # =           CONFIG           =
 # ==============================
-con = configparser.ConfigParser(allow_no_value=True)
+cfg = configparser.ConfigParser(allow_no_value=True)
 settings_files = [directory / 'eve-git.settings' for directory in (SCRIPTDIR, Path.home())]
-con.read(settings_files)
-SERVER = con['server']['url']
-GITEA_TOKEN = con['server'].get('gitea_token', '')
-SKRIPTY_DIR = con['server']['skripty_dir']
-SKRIPTY_EXE = con['server']['skripty_exe']
-SKRIPTY_SERVER = con['server']['skripty_server']
+cfg.read(settings_files)
+SERVER = cfg['server']['url']
+GITEA_TOKEN = cfg['server'].get('gitea_token', '')
+SKRIPTY_DIR = cfg['server']['skripty_dir']
+SKRIPTY_EXE = cfg['server']['skripty_exe']
+SKRIPTY_SERVER = cfg['server']['skripty_server']
 
 
 # ====================================================
@@ -96,7 +92,6 @@ sys.excepthook = excepthook
 # =           CLASSES           =
 # ===============================
 from progress import Progress
-from utils import *
 
 
 # =================================
