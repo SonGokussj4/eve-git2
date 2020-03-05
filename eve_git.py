@@ -63,7 +63,7 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
-SETTINGS_DIRS = (SCRIPTDIR, Path.home())
+SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
 SETTINGS_FILENAME = 'eve-git.settings'
 
 
