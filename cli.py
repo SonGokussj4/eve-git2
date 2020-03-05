@@ -85,7 +85,7 @@ Description:
     parser_deploy.add_argument('branch', nargs="?", help='Help for <branch>')
 
     parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
-    parser_list.add_argument('repository', nargs="?", default='', help='Help for <repository>')
+    parser_list.add_argument('repository', nargs="?", help='Help for <repository>')
     parser_list.add_argument('username', nargs="?", default='', help='Specify user/org')
     parser_list.set_defaults(func=eve_git.list_repo)
 

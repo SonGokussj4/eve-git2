@@ -655,9 +655,9 @@ def list_org():
 @logged
 def list_repo(args):
     """Function for listing directories."""
-    print(f"[ DEBUG ] [{lineno()}] Listing repo.")
+    print(f"[{lineno()}] [ DEBUG ] Listing repo.")
     cmd = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
-    print(f"[ DEBUG ] [{lineno()}] cmd: '{cmd}'")
+    print(f"[{lineno()}] [ DEBUG ] cmd: '{cmd}'")
     res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50")
     data = json.loads(res.content)
 
@@ -665,17 +665,17 @@ def list_repo(args):
     # Check if there was a good response
     if not data.get('ok'):
         msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
-        print(msg)
+        # print(msg)
         raise Exception(msg)
     elif not data.get('data'):
         msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
-        print(msg)
+        # print(msg)
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
     headers = ('id', 'repository', 'user', 'description')
     results = []
-    if args.repository and args.username:
+    if args.repository is not None and args.username:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data') if args.username.lower() in item['owner']['login'].lower()]
 
