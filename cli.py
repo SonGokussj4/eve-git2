@@ -54,6 +54,12 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
 # =================================
 def get_parser():
     """Return parser with arguments."""
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('-v', action='count', help='Verbal')
+    common.add_argument('-V', '--version', action='version')
+#     # common.add_argument('--details', dest='details', action='store_true',
+#     #                     help="Optional... Show details when listing repos/orgs")
+
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
     parser.formatter_class = CustomHelpFormatter
@@ -64,23 +70,17 @@ Description:
    <Ideally one line description of the program>
 
 """
+    # SUBPARSERS
     # https://pymotw.com/2/argparse/#nesting-parsers
-    parser_create = subparsers.add_parser('create', help='Subparser Help: create')
+    parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
     parser_create.add_argument('repository', help='Help for <repository>')
     parser_create.add_argument('description', help='Help for <description>')
 
-    parser_deploy = subparsers.add_parser('sdeploy', help='Subparser Help: sdeploy')
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
     parser_deploy.add_argument('username', help='Help for <username>')
     parser_deploy.add_argument('branch', help='Help for <branch>')
 
-    # SUBPARSERS
-    parser.add_argument('-v', action='count', help="Verbal")
-
-    parser.add_argument('-V', '--version', action='version')
-
-    parser.add_argument('--details', dest='details', action='store_true',
-                        help="Optional... Show details when listing repos/orgs")
 
     group = parser.add_mutually_exclusive_group()
 
@@ -143,6 +143,8 @@ Description:
 
     # group.add_argument('--transfer', dest='transfer', action='store_true',
     #                    help='Transfer <project_name> to organization')
+    parser.epilog = "--- Arguments common to all sub-parsers ---" \
+        + common.format_help().replace(common.format_usage(), '')
 
     return parser
 

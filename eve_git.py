@@ -78,6 +78,7 @@ GITEA_TOKEN = cfg['server'].get('gitea_token', '')
 SKRIPTY_DIR = Path(cfg['server']['skripty_dir'])
 SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
 SKRIPTY_SERVER = cfg['server']['skripty_server']
+LD_LIB_PATH = cfg['server']['ld_lib']
 DEBUG = cfg['app'].getboolean('debug')
 
 
@@ -170,15 +171,15 @@ def deploy(args):
             print(f"[ {BYel}WARNING{RCol} ] +-- Message: '{e}'")
             os.system(f'rmdir /S /Q "{git_folder}"')
 
-        # ===========================================
-        # =           LOAD REPOSITORY.INI           =
-        # ===========================================
-        print(f"[ {BBla}DEBUG{RCol} ] Checking 'repository.ini'")
-        repoini = tmp_dir / 'repository.ini'
-        # repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repository.ini')
+        # ========================================
+        # =           LOAD REPO.CONFIG           =
+        # ========================================
+        print(f"[ {BBla}DEBUG{RCol} ] Checking 'repo.config'")
+        repoini = tmp_dir / 'repo.config'
+        # repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repo.config')
         if not repoini.exists():
             print(f"[ {BWhi}INFO{RCol}  ] '{repoini}' not found... Ignoring making executables, symlinks, ...")
-            print(f"[ {BWhi}INFO{RCol}  ] To create a repository.ini.template, use 'eve-git template repository.ini'")
+            print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
         else:
             print(f"[ {BBla}DEBUG{RCol} ] '{repoini}' found. Loading config.")
             con = configparser.ConfigParser(allow_no_value=True)
@@ -198,13 +199,13 @@ def deploy(args):
             for key, val in con.items('Executable'):
                 exe_file = tmp_dir / key
                 if not exe_file.exists():
-                    print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repository.ini'.")
+                    print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repo.config'.")
                     continue
                 print(f"[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
                 os.chmod(exe_file, 0o774)
 
             # ================================================================================
-            # =           CHECK IF REQUIREMENTS.TXT / REPOSITORY.INI ARE DIFFERENT           =
+            # =           CHECK IF REQUIREMENTS.TXT / REPO.CONFIG ARE DIFFERENT           =
             # ================================================================================
             src_requirements = tmp_dir / 'requirements.txt'
             dst_requirements = target_dir / 'requirements.txt'
