@@ -85,7 +85,7 @@ Description:
     group = parser.add_mutually_exclusive_group()
 
     group.add_argument('--list', dest='list_repo', nargs='*', type=str,
-                       action=required_length(0, 1),
+                       action=required_length(0, 2),
                        metavar=('username'),
                        help='Show all repositories [of entered <user>]')
 

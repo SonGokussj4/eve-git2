@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 """<DESCRIPTION OF THE PROGRAM>"""
 
-# TODO Prepracovat toto vsechno (dlouhodoby TODO) do Classy...
+# TODO: Prepracovat toto vsechno (dlouhodoby TODO) do Classy...
+# TODO: dodelat cli: --undeploy, kde to vycisti system
 
 # =================================
 # =           LIBRARIES           =
@@ -14,32 +15,46 @@ import shlex
 import shutil
 import filecmp
 import getpass
+import fileinput
+import configparser
 import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
+
+# Pip Libs
+# from profilehooks import profile, timecall, coverage
 import requests
+from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
+from columnar import columnar  # https://pypi.org/project/Columnar/
+from click import style  # https://pypi.org/project/click/
+from colorama import init, Fore, Back, Style
+# Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+# Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
+# Style: DIM, NORMAL, BRIGHT, RESET_ALL
 
 # User Libs
 import cli
-try:
-    import settings as cfg
-except ModuleNotFoundError:
-    print("[ ERROR ] No 'settings.py' file in root directory. Rename/Modify 'settings.py.example'")
-    sys.exit()
+from utils import *
 
-# Pip Libs
-from git import Repo  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
-from columnar import columnar  # https://pypi.org/project/Columnar/
-# from colorama import Fore  # https://pypi.org/project/colorama/
-# from tqdm import tqdm  # https://pypi.org/project/tqdm/
-from click import style  # https://pypi.org/project/click/
+
+# ==============================
+# =           COLORS           =
+# ==============================
+RCol = Style.RESET_ALL
+Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
+Blu, BBlu = Fore.BLUE, f'{Fore.BLUE}{Style.BRIGHT}'
+Gre, BGre = Fore.GREEN, f'{Fore.GREEN}{Style.BRIGHT}'
+Bla, BBla = Fore.BLACK, f'{Fore.BLACK}{Style.BRIGHT}'
+Whi, BWhi = Fore.WHITE, f'{Fore.WHITE}{Style.BRIGHT}'
+Yel, BYel = Fore.YELLOW, f'{Fore.YELLOW}{Style.BRIGHT}'
+
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
-    print("[ ERROR ] Hell NO! You're using Python2!! That's not cool man...")
+    print(f"[ {BRed}ERROR{RCol} ] Hell NO! You're using Python2!! That's not cool man...")
     sys.exit()
 if sys.version_info.minor <= 6:
-    print("[ ERROR ] Nah... Your Python version have to be at least 3.7. Sorry")
+    print(f"[ {BRed}ERROR{RCol} ] Nah... Your Python version have to be at least 3.7. Sorry")
     sys.exit()
 
 
@@ -48,9 +63,33 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
-SERVER = cfg.Server.url
-GITEA_TOKEN = cfg.Server.gitea_token
-SKRIPTY_DIR = Path("/expSW/SOFTWARE/skripty")
+SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
+SETTINGS_FILENAME = 'eve-git.settings'
+
+
+# ==============================
+# =           CONFIG           =
+# ==============================
+cfg = configparser.ConfigParser(allow_no_value=True)
+cfg.read([folder / SETTINGS_FILENAME for folder in SETTINGS_DIRS])
+
+SERVER = cfg['server']['url']
+GITEA_TOKEN = cfg['server'].get('gitea_token', '')
+SKRIPTY_DIR = Path(cfg['server']['skripty_dir'])
+SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
+SKRIPTY_SERVER = cfg['server']['skripty_server']
+DEBUG = cfg['app'].getboolean('debug')
+
+
+# ====================================================
+# =           Exceptions without Traceback           =
+# ====================================================
+def excepthook(type, value, traceback):
+    print(value)
+
+
+if not DEBUG:
+    sys.excepthook = excepthook
 
 
 # ===============================
@@ -63,8 +102,7 @@ from progress import Progress
 # =           FUNCTIONS           =
 # =================================
 def deploy(args):
-    print(f"[ INFO ] Deploying... args: '{args}'")
-
+    print(f"[ {BWhi}INFO{RCol}  ] Deploying... args: '{args}'")
     # User specified both arguments: --clone <reponame> <username>
     if len(args) >= 2:
         branch = 'master'
@@ -73,90 +111,293 @@ def deploy(args):
         else:
             reponame, username = args
 
+        # ==================================================
+        # =           CHECK IF <username> EXISTS           =
+        # ==================================================
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ ERROR ] User '{username}' doesn't exist!")
-            sys.exit(1)
+            raise Exception(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
+        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
 
+        # ================================================================
+        # =           CHECK FOR <repository> AND <user> EXISTS           =
+        # ================================================================
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            sys.exit(1)
+            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            # sys.exit(1)
+            raise Exception(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
 
         # Everything OK, clone the repository to /tmp/<reponame>
         tmp_dir = Path('/tmp') / reponame
-        print("DEBUG: tmp_dir:", tmp_dir)
-
-        # If folder exists, delete
-        if tmp_dir.exists():
-            print(f"[ WARNING ] '{tmp_dir}' already exists. Removing.")
-            # res = shutil.rmtree(tmp_dir, ignore_errors=True)
-            res = shutil.rmtree(tmp_dir)
-
-        # Clone repo
-        repo = Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
-                                   to_path=tmp_dir.resolve(),
-                                   progress=Progress())
-        print(f"[ INFO ] Clonning to '{tmp_dir}' DONE")
-        print(f"[ DEBUG ] repo: {repo}")
-
-        # Remove .git folder
-        print(f"[ DEBUG ] Removing '.git' folder")
-        res = shutil.rmtree(tmp_dir / '.git')
-        print(f"[ DEBUG ] Removing '.git' folder ... DONE")
-
-        # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         target_dir = SKRIPTY_DIR / reponame
-        print("DEBUG: target_dir:", target_dir)
 
-        # Create target_dir if it does not exists
-        if not target_dir.exists():
-            target_dir.mkdir(exist_ok=True)
-            print(f"[ DEBUG ] {target_dir} created.")
+        # ==============================================================
+        # =           REMOVE EXISTING /tmp/{reponame} FOLDER           =
+        # ==============================================================
+        if tmp_dir.exists():
+            print(f"[ {Yel}WARNING{RCol} ] '{tmp_dir}' already exists. Removing.")
+            # res = shutil.rmtree(tmp_dir, ignore_errors=True)
+            try:
+                res = shutil.rmtree(tmp_dir)
+            except Exception as e:
+                print(f"[ {BRed}ERROR{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+                print(f"[ {BRed}ERROR{RCol} ] +-- Message: '{e}'")
+                os.system(f'rmdir /S /Q "{tmp_dir}"')
 
-        # Check for different in 'requirements.txt' file(s)
-        src_requirements = tmp_dir / 'requirements.txt'
-        if src_requirements.exists():
+        # ================================================
+        # =           CLONE GIT REPO INTO /tmp           =
+        # ================================================
+        print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
+        Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
+                        to_path=tmp_dir.resolve(),
+                        branch=branch,
+                        depth=1,
+                        progress=Progress())
+
+        # ==========================================
+        # =           REMOVE .GIT FOLDER           =
+        # ==========================================
+        print(f"[ {BBla}DEBUG{RCol} ] Removing '.git' folder")
+        git_folder = tmp_dir / '.git'
+        try:
+            res = shutil.rmtree(git_folder)
+        except Exception as e:
+            print(f"[ {BYel}WARNING{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+            print(f"[ {BYel}WARNING{RCol} ] +-- Message: '{e}'")
+            os.system(f'rmdir /S /Q "{git_folder}"')
+
+        # ===========================================
+        # =           LOAD REPOSITORY.INI           =
+        # ===========================================
+        print(f"[ {BBla}DEBUG{RCol} ] Checking 'repository.ini'")
+        repoini = tmp_dir / 'repository.ini'
+        # repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repository.ini')
+        if not repoini.exists():
+            print(f"[ {BWhi}INFO{RCol}  ] '{repoini}' not found... Ignoring making executables, symlinks, ...")
+            print(f"[ {BWhi}INFO{RCol}  ] To create a repository.ini.template, use 'eve-git template repository.ini'")
+        else:
+            print(f"[ {BBla}DEBUG{RCol} ] '{repoini}' found. Loading config.")
+            con = configparser.ConfigParser(allow_no_value=True)
+            con.read(repoini)
+            # print(f">>> con['repo']['framework']: {con['repo']['framework']}")
+
+            # =============================================
+            # =           MAKE FILES EXECUTABLE           =
+            # =============================================
+            print(f"[ {BBla}DEBUG{RCol} ] Changing all FILE permissions in '{tmp_dir}' to 664")
+            for item in tmp_dir.iterdir():
+                item: Path
+                if not item.is_file():
+                    continue
+                os.chmod(item, 0o664)
+
+            for key, val in con.items('Executable'):
+                exe_file = tmp_dir / key
+                if not exe_file.exists():
+                    print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repository.ini'.")
+                    continue
+                print(f"[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
+                os.chmod(exe_file, 0o774)
+
+            # ================================================================================
+            # =           CHECK IF REQUIREMENTS.TXT / REPOSITORY.INI ARE DIFFERENT           =
+            # ================================================================================
+            src_requirements = tmp_dir / 'requirements.txt'
             dst_requirements = target_dir / 'requirements.txt'
-            similar = filecmp.cmp(src_requirements, dst_requirements)
-            if not similar:
-                print("[ WARNING ] BEWARE. requirements.txt are different. Please 'pip install -r requirements.txt' changes.")
 
-        # TODO check req, mount/create .env, ... all this stuff
+            venv_update = False
+            if src_requirements.exists():
+                print(f"[ {BBla}DEBUG{RCol} ] '{src_requirements}' exists.")
+                dst_requirements = target_dir / 'requirements.txt'
+                if not dst_requirements.exists():
+                    print(f"[ {BBla}DEBUG{RCol} ] '{dst_requirements}' does not exists.")
+                    print(f"[ {BWhi}INFO{RCol}  ] Missing '{dst_requirements}' --> Installing '.env' and all 'PIP libs'.")
+                    venv_update = True
+                else:
+                    print(f"[ {BBla}DEBUG{RCol} ] '{dst_requirements}' exists.")
+                    similar = filecmp.cmp(src_requirements, dst_requirements)
+                    if similar:
+                        print(f"[ {BWhi}INFO{RCol}  ] '{src_requirements}' and '{dst_requirements}' are the same. No need to update .env")
+                    else:
+                        print(f"[ {BWhi}INFO{RCol}  ] '{src_requirements}' and '{dst_requirements}' are different.")
+                        print(f"[ {BWhi}INFO{RCol}  ] Venv '.env' would be created and PIP libraries installed/updated.")
+                        venv_update = True
 
-        # Ask if they are SURE
+            # ==================================================
+            # =           CREATE VIRTUAL ENVIRONMENT           =
+            # ==================================================
+            if venv_update:
+                framework = con['Repo']['Framework']
+                print(f"[ {BWhi}INFO{RCol}  ] Making virtual environment...")
+                cmd = f'{framework} -m venv {tmp_dir}/.env'
+                print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+                os.system(cmd)
 
-        # Rsync all the things
-        cmd = 'rsync -avh --progress --remove-source-files /tmp/dochazka/ ar-sword:/expSW/SOFTWARE/skripty/dochazka'
-        print("DEBUG: shlex(cmd):", shlex.split(cmd))
-        res = sp.call(shlex.split(cmd))
-        if res != 0:
-            print("[ ERROR ] Something went wrong with rsync...")
-            return 1
+                # ===================================
+                # =           UPGRADE PIP           =
+                # ===================================
+                print(f"[ {BWhi}INFO{RCol}  ] Upgrading Pip")
+                cmd = f'{tmp_dir}/.env/bin/pip install --upgrade pip'
+                os.system(cmd)
 
-        # Cleanup
+                # ===================================
+                # =           PIP INSTALL           =
+                # ===================================
+                print(f"[ {BWhi}INFO{RCol}  ] Running Pip install")
+                cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
+                os.system(cmd)
+
+            # =========================================
+            # =           CHANGE VENV PATHS           =
+            # =========================================
+            target_dir = SKRIPTY_DIR / reponame
+            print(f"[ {BWhi}INFO{RCol}  ] Changing venv paths '{tmp_dir}/.env' --> '{target_dir}/.env'")
+            cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
+            print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            os.system(cmd)
+
+            # ===================================================
+            # =           REPLACE MAIN_FILE IN run.sh           =
+            # ===================================================
+            runsh_file = tmp_dir / 'run.sh'
+            print(f"[ {BWhi}INFO{RCol}  ] In '{runsh_file}' ... Replacing 'MAIN_FILE_PLACEHOLDER' --> '{con['Repo']['main_file']}'")
+            with fileinput.FileInput(runsh_file, inplace=True) as f:
+                for line in f:
+                    print(line.replace('MAIN_FILE_PLACEHOLDER', con['Repo']['main_file']), end='')
+
+            # =====================================================
+            # =           CREATE REMOTE reponame FOLDER           =
+            # =====================================================
+            # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
+            if not target_dir.exists():
+                cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
+                os.system(cmd)
+                print(f"[ {BBla}DEBUG{RCol} ] {target_dir} created.")
+
+            # ==========================================
+            # =           RSYNC ALL THE DATA           =
+            # ==========================================
+            # Rsync all the data
+            env_dir = tmp_dir / '.env'
+            if env_dir.exists():
+                # cmd = (f'rsync -avh --delete --progress {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+                cmd = (f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+            else:
+                # cmd = (f'rsync -avh --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+                cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+                       f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+            print(f"[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
+            res = os.system(cmd)
+
+            # =============================================
+            # =           MAKE SYMBOLIC LINK(S)           =
+            # =============================================
+            for key, val in con.items('Link'):
+                src_filepath = target_dir / key
+                link_filpath = SKRIPTY_EXE / val
+                print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{link_filpath}'")
+                cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {link_filpath}"'
+                print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+                os.system(cmd)
+
+        # ===============================
+        # =           CLEANUP           =
+        # ===============================
         shutil.rmtree(tmp_dir, ignore_errors=True)
+        print(f"[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
 
-        # Check the description for 'what to do with .executable files and so on...'
-        print(f'[ INFO ] DONE')
+        # ==============================
+        # =           FINISH           =
+        # ==============================
+
+        print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
+
+        # # Rsync all the things
+        # # --delete ... for files that are not present in the current...
+        # cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
+        # print(f"[ DEBUG ] shlex.split(cmd): {shlex.split(cmd)}")
+        # try:
+        #     res = sp.call(shlex.split(cmd))
+        #     if res != 0:
+        #         print(f"[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
+        #         return 1
+        # except Exception as e:
+        #     print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
+        #     print(f"[ WARNING ] +-- Message: {e}")
+
+        #     print(f"[ INFO ] Removing '{SKRIPTY_DIR}\\{reponame}'... ")
+        #     os.system(f'rmdir /S /Q "{SKRIPTY_DIR}\\{reponame}"')
+
+        #     print(f"[ INFO ] Copying '{tmp_dir}' --> '{SKRIPTY_DIR}\\{reponame}'")
+        #     # dirs_exist_ok from Python3.8!!!
+        #     res = shutil.copytree(tmp_dir, f'{SKRIPTY_DIR}\\{reponame}', dirs_exist_ok=True)
+
+        # # Cleanup
+        # print(f"[ INFO ] Cleanup. Removing '{tmp_dir}'")
+        # try:
+        #     res = shutil.rmtree(tmp_dir)
+        # except Exception as e:
+        #     print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+        #     print(f"[ WARNING ] +-- Message: '{e}'")
+        #     os.system(f'rmdir /S /Q "{tmp_dir}"')
+
+        # print("[ INFO ] Trying to load 'config.ini'")
+        # # Load up 'config.ini'
+        # config = configparser.ConfigParser(allow_no_value=True)
+        # config_ini = SKRIPTY_DIR / reponame / 'config.ini'
+        # res = config.read(config_ini)
+        # if res:
+        #     print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
+        #     # Make links
+        #     for section in config.sections():
+        #         for key, val in config[section].items():
+        #             if section == 'link':
+        #                 link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
+        #                 link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
+        #                 if os.name == 'nt':
+        #                     print(f"[ DEBUG ] Doing: 'mklink {link_src} {link_dst}'")
+        #                     cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
+        #                     # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
+        #                     print(f">>> cmd: {cmd}")
+        #                     res = sp.call(cmd)
+        #                     # print(f">>> res: {res}")
+        #                 else:
+        #                     print(f"[ DEBUG ] Doing: 'ln -s {link_src} {link_dst}'")
+        #                     cmd = f'ln -s {link_src} {link_dst}'
+        #                     print(f">>> cmd: {cmd}")
+        #                     res = sp.call(shlex.split(cmd))
+        #                 pass
+        #             elif section == 'executable':
+        #                 executable_file = SKRIPTY_DIR / reponame / key
+        #                 print(f"[ DEBUG ] Doing: chmod +x {executable_file}")
+        #                 pass
+        # else:
+        #     print('[ INFO ] config.ini not found. Ignoring.')
+
+        # print("[ DEBUG ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
+        # # Check the description for 'what to do with .executable files and so on...'
+        # print(f'[ INFO ] DONE')
+
         return 0
 
     # User didn't specify <username>: --clone <reponame>
     elif len(args) == 1:
         reponame = args[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        print(f"[ DEBUG ] res: {res}")
+        # print(f"[ DEBUG ] res: {res}")
 
         data = json.loads(res.content)
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             return 1
         elif not data.get('data'):
-            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             return 1
 
         # Data acquired, list all found repos in nice table
@@ -169,10 +410,10 @@ def deploy(args):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print("[ ERROR ] You have to write an ID")
+            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
             return 1
         elif not answer.isdigit():
-            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             return 1
 
         # Get the right repo by it's ID
@@ -181,12 +422,12 @@ def deploy(args):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -195,32 +436,9 @@ def deploy(args):
         deploy([reponame, username])
         return 0
 
-    # Args nejspis "reponame" "username"
-
-    # Mozna nejake navic, pokud to nebude v nejakem eve.conf souboru
-    # napr co to ma udelat executable,
-    # co to ma prekopirovat do Binu a jak to pojmenovat a na co to navazat
-    # Jestli neco nakopirovat nekam jinam: /expSW/SOFTWARE/var
-
-    # Zkontroluje to, zda repo s nazvem existuje. Pokud ne, smula. nedavat vyber
-    # Napsat info, co to vsechno bude delat
-    # A zeptat se, zda s tim clovek souhlasi
-
-    # Deploy by mel byt zavisly na tom, zda je to python, ma env, nebo bash, nebo tak.
-
     # PYTHON
     # Pokud skript obsahuje testy, tak napred udelat TESTY a pokracovat jen v pripade, ze jsou zelene
     # mozna --ignore-tests
-    # Udelat git archive nebo git clone (a pote to smaze .git slozku), popr vygooglit,
-    # zda tam neni nejaky RSYNC (nebo git clone nekam to temp a pak Rsync zmen do cilove slozky,
-    # aby byl cas deploye co nejkratsi)
-    #
-    # Jakmile se zmeni soubory, udelat potrebne linky co Bin slozky
-    # Pote zkontrolovat, zda nynejsi requirements.txt se shoduje s vyslednym requirements
-    # Pokud ne, tak to v /tmp musi udelat jeste pip install -r requirements
-    # popripade to udelat jako odpojeni expSW, pripojeni expSW (idealne asi ne TACTICUS, ale externi - ar-nexus?)
-    # a instalovat pip a environment tam. ... Muset zkusit treba na pdf2text nebo tak.
-    # Pote rsync .env s tim, ze Run.sh je na nej napojeny.
     #
     # BASH
     # Proste jen hodi na misto, smaze .git a udela link
@@ -242,13 +460,13 @@ def create_org(args):
     org_name = input(f'Organization name [{org_name_input}]: ')
     org_name = org_name_input if not org_name else org_name
     if not org_name:
-        print(f"[ ERROR ] You have to enter the name of the organization.")
+        print(f"[ {BRed}ERROR{RCol} ] You have to enter the name of the organization.")
         sys.exit(1)
 
     desc = input(f'Organization description [{description}]: ')
-    desc = description if not desc else desc
+    desc = f'{description}\n' if not desc else desc
     if not desc:
-        print(f"[ ERROR ] You have to specify organization description.")
+        print(f"[ {BRed}ERROR{RCol} ] You have to specify organization description.")
         sys.exit(1)
 
     # Try to create the org_name
@@ -267,16 +485,16 @@ def create_org(args):
 
     # Viable responses
     if res.status_code == 401:
-        print(f"[ ERROR ] Something went wrong. Check your GITEA_TOKEN or internet connection.")
+        print(f"[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection.")
         sys.exit(1)
 
     elif res.status_code == 422:
-        print(f"[ ERROR ] Repository '{org_name}' with the same name already exists.")
+        print(f"[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists.")
         sys.exit(1)
 
     elif res.status_code == 422:
-        print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
-        print(f"[ ERROR ] {json.loads(res.content)}")
+        print(f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow.")
+        print(f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}")
         sys.exit(1)
 
     elif res.status_code == 201:
@@ -301,13 +519,13 @@ def create_repo(args_create):
     repo = input(f'Repository name [{reponame}]: ')
     repo = reponame if not repo else repo
     if not repo:
-        print(f"[ ERROR ] You have to enter the name of your repository.")
+        print(f"[ {BRed}ERROR{RCol} ] You have to enter the name of your repository.")
         sys.exit(1)
 
     desc = input(f'Repository description [{description}]: ')
     desc = description if not desc else desc
     if not desc:
-        print(f"[ ERROR ] You have to write a small description for your project.")
+        print(f"[ {BRed}ERROR{RCol} ] You have to write a small description for your project.")
         sys.exit(1)
 
     # Try to create the repo
@@ -335,16 +553,16 @@ def create_repo(args_create):
 
     # Viable responses
     if res.status_code == 409:
-        print(f"[ ERROR ] Repository '{repo}' with the same name under '{username}' already exists.")
+        print(f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{username}' already exists.")
         sys.exit(1)
 
     elif res.status_code == 401:
-        print(f"[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
+        print(f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN...")
         sys.exit(1)
 
     elif res.status_code == 422:
-        print(f"[ ERROR ] Validation Error... Can't create repository with this name. Details bellow.")
-        print(f"[ ERROR ] {json.loads(res.content)}")
+        print(f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow.")
+        print(f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}")
         sys.exit(1)
 
     elif res.status_code == 201:
@@ -364,30 +582,30 @@ def transfer_repo():
     """To tranfer repo to some organization"""
     # TODO: bude ve verzi 1.12.0
     # TODO: trnasfer chybel v lokalni gitea (https://gitea.avalon.konstru.evektor.cz/api/swagger)
-
-    reponame = "Test"
-    description = "Test3"
-    private = False
-    organization = "P135"
-    print("Server: ", SERVER)
-    print("TOKEN: ", GITEA_TOKEN)
-
-    repo_data = {'new_owner': organization}
-    # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
-    #                 'Authorization': 'token ACCESS_TOKEN'}
-    res = requests.post(
-        f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
-        headers=repo_headers, json=repo_data)
-    print(res)
-    print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
     pass
+    # reponame = "Test"
+    # description = "Test3"
+    # private = False
+    # organization = "P135"
+    # print("Server: ", SERVER)
+    # print("TOKEN: ", GITEA_TOKEN)
+
+    # repo_data = {'new_owner': organization}
+    # # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
+    # #                 'Authorization': 'token ACCESS_TOKEN'}
+    # res = requests.post(
+    #     f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
+    #     headers=repo_headers, json=repo_data)
+    # print(res)
+    # print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
+    # pass
 
 
 def list_org():
     """Function for listing organizations."""
     res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
     if res.status_code == 403:
-        print(f"[ ERROR ] Forbidden. You don't have enough access rights...")
+        print(f"[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights...")
         # TODO mozna to udelat tak, ze vezmu vsechny repositare a vytahnu z nich do setu vsechny org
         # TODO pak je accessnu a vypisu zde bez nutnosti GITEA_TOKEN
         return 1
@@ -406,31 +624,40 @@ def list_org():
 
 def list_repo(args):
     """Function for listing directories."""
-    res = requests.get(f"{SERVER}/api/v1/repos/search")
+    reponame, username = '', ''
+    if len(args) == 1:
+        reponame = args[0]
+    elif len(args) == 2:
+        reponame, username = args
+
+    res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc&limit=50")
     data = json.loads(res.content)
 
     # TODO duplicate functionality, make a function
     # Check if there was a good response
     if not data.get('ok'):
-        print(f"[ ERROR ] Shit... Data not acquired... {data}")
+        print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
         sys.exit(1)
     elif not data.get('data'):
-        print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+        print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
         sys.exit(1)
 
     # Data acquired, list all found repos in nice table
     headers = ('id', 'repository', 'user', 'description')
-    if len(args) == 1:
+    results = []
+    if len(args) == 2:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data') if item['owner']['login'].lower() == args[0].lower()]
-    else:
+                   for item in data.get('data') if username in item['owner']['login']]
+        if len(results) == 0:
+            print(f"[ WARNING ] No repository with += username: '{username}' found. Listing for all users.")
+
+    if len(results) == 0 or len(args) != 2:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
+
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
 
-    # for dat in data:
-    #     print(dat["html_url"])
     return 0
 
 
@@ -445,13 +672,13 @@ def clone_repo(args_clone):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
             sys.exit(1)
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
         # Everything OK, clone the repository
@@ -471,10 +698,10 @@ def clone_repo(args_clone):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             sys.exit(1)
         elif not data.get('data'):
-            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             sys.exit(1)
 
         # Data acquired, list all found repos in nice table
@@ -487,10 +714,10 @@ def clone_repo(args_clone):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print("[ ERROR ] You have to write an ID")
+            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
-            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -499,12 +726,12 @@ def clone_repo(args_clone):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -525,13 +752,13 @@ def remove_repo(args_remove):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
             sys.exit(1)
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
         # Everything OK, delete the repository
@@ -543,7 +770,7 @@ def remove_repo(args_remove):
 
         answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
         if not answer == reponame:
-            print(f"[ ERROR ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
+            print(f"[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
             sys.exit(1)
 
         print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'")
@@ -551,12 +778,12 @@ def remove_repo(args_remove):
 
         # Case when something is wrong with GITEA_TOKEN...
         if res.status_code == 401:
-            print("[ ERROR ] Unauthorized... Something wrong with you GITEA_TOKEN...")
+            print(f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN...")
             sys.exit()
 
         # Case when normal user tries to remove repository of another user and doesn't have authorization for that
         elif res.status_code == 403:
-            print("[ ERROR ] Forbidden... You don't have enough permissinons to delete this repository...")
+            print(f"[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository...")
             sys.exit()
 
         print("[ INFO ] DONE")
@@ -572,10 +799,10 @@ def remove_repo(args_remove):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             sys.exit(1)
         elif not data.get('data'):
-            print(f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             sys.exit(1)
 
         # Data acquired, list all found repos in nice table
@@ -591,10 +818,10 @@ def remove_repo(args_remove):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print("[ ERROR ] You have to write an ID")
+            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
-            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -603,12 +830,12 @@ def remove_repo(args_remove):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -629,7 +856,7 @@ def remove_org(args_remove):
 
         # Case repo does not exist
         if res.status_code == 404:
-            print(f"[ ERROR ] Organization '{orgname}' not found...")
+            print(f"[ {BRed}ERROR{RCol} ] Organization '{orgname}' not found...")
 
             # Get all organizations
             res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
@@ -638,7 +865,7 @@ def remove_org(args_remove):
             # TODO Duplicate Data....
             # Check if there was a good response
             if not data:
-                print(f"[ ERROR ] Search for organizations returned 0 results... Try something different.")
+                print(f"[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
                 sys.exit(1)
 
             print("Which Organization you want to delete?")
@@ -652,10 +879,10 @@ def remove_org(args_remove):
             # Ask for org ID
             answer = input("Enter org ID: ")
             if not answer:
-                print("[ ERROR ] You have to write an ID")
+                print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
                 sys.exit(1)
             elif not answer.isdigit():
-                print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+                print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
                 sys.exit(1)
 
             # Get the right org by it's ID
@@ -664,12 +891,12 @@ def remove_org(args_remove):
 
             # User made a mistake and entered number is not one of the listed repo IDs
             if len(selected_organization) == 0:
-                print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+                print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
                 sys.exit(1)
 
             # Something went wrong. There should not be len > 1... Where's the mistake in the code?
             elif len(selected_organization) > 1:
-                print(f"[ ERROR ] Beware! len(selected_organization) > 1... That's weird... "
+                print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
                       f"Like really... Len is: {len(selected_organization)}")
                 sys.exit(1)
 
@@ -691,7 +918,7 @@ def remove_org(args_remove):
 
             answer = input(f"Enter the organization NAME as confirmation [{orgname}]: ")
             if not answer == orgname:
-                print(f"[ ERROR ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
+                print(f"[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
                 sys.exit(1)
 
             print(f"[ INFO ] Deleting organization '{orgname}'")
@@ -703,7 +930,7 @@ def remove_org(args_remove):
                 return 0
 
             elif res.status_code == 401:
-                print("[ ERROR ] Unauthorized. You don't have enough rights to delete this repository.")
+                print(f"[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository.")
                 sys.exit(1)
 
     elif args_remove == 'empty':
@@ -713,7 +940,7 @@ def remove_org(args_remove):
 
         # Check if there was a good response
         if not data:
-            print(f"[ ERROR ] Search for organizations returned 0 results... Try something different.")
+            print(f"[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
             sys.exit(1)
 
         print("Which Organization you want to delete?")
@@ -727,10 +954,10 @@ def remove_org(args_remove):
         # Ask for org ID
         answer = input("Enter org ID: ")
         if not answer:
-            print("[ ERROR ] You have to write an ID")
+            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
-            print("[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right org by it's ID
@@ -739,12 +966,12 @@ def remove_org(args_remove):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_organization) == 0:
-            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_organization) > 1:
-            print(f"[ ERROR ] Beware! len(selected_organization) > 1... That's weird... "
+            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_organization)}")
             sys.exit(1)
 
@@ -765,13 +992,13 @@ def edit_desc(args_clone):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ ERROR ] User '{username}' doesn't exist!")
+            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
             sys.exit(1)
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ ERROR ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
         # Everything OK, edit description
@@ -787,7 +1014,7 @@ def edit_desc(args_clone):
                              headers=repo_headers,
                              json=repo_data)
         if res.status_code != 200:
-            print("[ ERROR ] ")
+            print(f"[ {BRed}ERROR{RCol} ] ")
             sys.exit(1)
 
         print("[ INFO ] DONE")
@@ -804,11 +1031,11 @@ def edit_desc(args_clone):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ ERROR ] Shit... Data not acquired... {data}")
+            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             sys.exit(1)
         elif not data.get('data'):
             print(
-                f"[ ERROR ] Search for repository '{reponame}' returned 0 results... Try something different.")
+                f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             sys.exit(1)
 
         # Data acquired, list all found repos in nice table
@@ -821,11 +1048,11 @@ def edit_desc(args_clone):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print("[ ERROR ] You have to write an ID")
+            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
             print(
-                "[ ERROR ] What you entered is not a number... You have to write one of the IDs.")
+                "[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -834,12 +1061,12 @@ def edit_desc(args_clone):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ ERROR ] Not a valid answer. You have to select one of the IDs.")
+            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ ERROR ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -864,7 +1091,7 @@ if __name__ == '__main__':
     # In case of no input, show help
     # if not any(vars(args).values()):
     if not len(sys.argv) > 1:
-        print("[ ERROR ] No arguments... Showing help.")
+        print(f"[ {BRed}ERROR{RCol} ] No arguments... Showing help.")
         print()
         parser.print_help()
         sys.exit()
