@@ -6,3 +6,5 @@ skripty_server = ar-sword
 
 [app]
 debug = False
+
+# https://stackoverflow.com/a/10746467/4574809
