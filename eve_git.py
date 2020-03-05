@@ -73,8 +73,8 @@ settings_files = [directory / 'eve-git.settings' for directory in (SCRIPTDIR, Pa
 cfg.read(settings_files)
 SERVER = cfg['server']['url']
 GITEA_TOKEN = cfg['server'].get('gitea_token', '')
-SKRIPTY_DIR = cfg['server']['skripty_dir']
-SKRIPTY_EXE = cfg['server']['skripty_exe']
+SKRIPTY_DIR = Path(cfg['server']['skripty_dir'])
+SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
 SKRIPTY_SERVER = cfg['server']['skripty_server']
 
 
@@ -114,6 +114,7 @@ def deploy(args):
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
             raise Exception(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
+        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
 
         # ================================================================
         # =           CHECK FOR <repository> AND <user> EXISTS           =
@@ -124,6 +125,7 @@ def deploy(args):
             print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             # sys.exit(1)
             raise Exception(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
 
         # Everything OK, clone the repository to /tmp/<reponame>
         tmp_dir = Path('/tmp') / reponame
@@ -145,12 +147,12 @@ def deploy(args):
         # ================================================
         # =           CLONE GIT REPO INTO /tmp           =
         # ================================================
+        print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
         Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
                         to_path=tmp_dir.resolve(),
                         branch=branch,
                         depth=1,
                         progress=Progress())
-        print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
 
         # ==========================================
         # =           REMOVE .GIT FOLDER           =
