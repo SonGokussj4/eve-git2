@@ -662,10 +662,10 @@ def list_org(args):
 @logged
 def list_repo(args):
     """Function for listing directories."""
-    print(f"[{lineno()}] [ DEBUG ] Listing repo.")
+    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] Listing repo.")
     list_repos = args.repository if args.repository is not None else ''
     url = f"{SERVER}/api/v1/repos/search?q={list_repos}&sort=created&order=desc&limit=50"
-    print(f"[{lineno()}] [ DEBUG ] url: '{url}'")
+    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] url: '{url}'")
     res = requests.get(url)
     data = json.loads(res.content)
 
@@ -694,7 +694,7 @@ def list_repo(args):
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
 
-    tbl = columnar(results, headers, no_borders=True)
+    tbl = columnar(results, headers, no_borders=True, wrap_max=5)
     print(tbl)
 
     return 0
