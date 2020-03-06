@@ -41,7 +41,6 @@ from autologging import logged, TRACE, traced  # https://pypi.org/project/Autolo
 import cli
 from utils import *
 
-
 # ==============================
 # =           COLORS           =
 # ==============================
@@ -535,17 +534,12 @@ def create_org(args):
 @traced
 @logged
 def create_repo(args):
-    repo = input(f'Repository name [{args.reponame}]: ')
-    repo = args.reponame if not repo else repo
-    if not repo:
-        msg = f"[ {BRed}ERROR{RCol} ] You have to enter the name of your repository."
-        raise Exception(msg)
+    args.reponame = ask_with_defaults('Repository name', defaults=args.reponame)
+    args.description = ask_with_defaults('Repository name', defaults=args.description)
 
-    desc = input(f'Repository description [{args.description}]: ')
-    desc = args.description if not desc else desc
-    if not desc:
-        msg = f"[ {BRed}ERROR{RCol} ] You have to write a small description for your project."
-        raise Exception(msg)
+    print(f"[ {BBla}DEBUG{RCol} ] args.reponame: {args.reponame}")
+    print(f"[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
+    # log.debug(f"args.description: {args.description}")
 
     # Try to create the repo
     repo_headers = {
@@ -553,28 +547,31 @@ def create_repo(args):
         'content-type': 'application/json',
         'Authorization': f'token {GITEA_TOKEN}'
     }
+    print(f"[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
+
     repo_data = {
         'auto_init': True,
-        'name': repo,
+        'name': args.reponame,
         'readme': 'Default',
-        'description': desc,
+        'description': args.description,
         # 'gitignores': 'Evektor',
         'private': False
     }
+    print(f"[ {BBla}DEBUG{RCol} ] repo_data: {repo_data}")
 
     # User specified different user/org. Only users with admin right can create repos anywhere
-    # url = f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}"
     url = f"{SERVER}/api/v1/user/repos"
     if args.username != getpass.getuser():
-        # url = f"{SERVER}/api/v1/admin/users/{args.username}/repos?access_token={GITEA_TOKEN}"
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
+    print(f"[ {BBla}DEBUG{RCol} ] url: {url}")
 
     # Post the repo
     res = requests.post(url=url, headers=repo_headers, json=repo_data)
+    print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
 
     # Viable responses
     if res.status_code == 409:
-        msg = f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{args.username}' already exists."
+        msg = f"[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
         raise Exception(msg)
 
     elif res.status_code == 401:
@@ -586,19 +583,21 @@ def create_repo(args):
         msg += f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
         raise Exception(msg)
 
-    elif res.status_code == 201:
-        print("[ INFO ] Done. Repository created.")
-        answer = input("Clone into current folder? [Y/n]: ")
-        if answer.lower() in ['y', 'yes']:
-            Repo.clone_from(url=f"{SERVER}/{args.username}/{repo}",
-                            to_path=Path(CURDIR.resolve() / repo).resolve(),
-                            branch='master',
-                            progress=Progress())
+    elif res.status_code != 201:
+        msg = f"[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. status_code: {res.status_code}"
+        raise Exception(msg)
 
-        print("[ INFO ] DONE")
-        return 0
+    print(f"[ {BWhi}INFO{RCol} ] Repository created.")
 
-    raise Exception("Something went wrong... Don't know what... Should not happened...")
+    answer = input("Clone into current folder? [Y/n]: ")
+    if answer.lower() in ['y', 'yes']:
+        Repo.clone_from(url=f"{SERVER}/{args.username}/{args.reponame}",
+                        to_path=Path(CURDIR.resolve() / args.reponame).resolve(),
+                        branch='master',
+                        progress=Progress())
+
+    print(f"[ {BWhi}INFO{RCol} ] DONE")
+    return 0
 
 
 def transfer_repo():
@@ -781,6 +780,8 @@ def clone_repo(args_clone):
         return 0
 
 
+@traced
+@logged
 def remove_repo(args_remove):
     """Remove repository from gitea"""
     # print(f"[ DEBUG ] reponame: {args_remove}")

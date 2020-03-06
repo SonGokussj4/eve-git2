@@ -4,6 +4,8 @@ import argparse
 import utils
 import eve_git
 import getpass
+# from eve_git import RCol, BWhi
+
 
 # =================================
 # =           CONSTANTS           =
@@ -100,7 +102,7 @@ Description:
 
     parser_create = subparsers.add_parser('create', help='Create one thing!!!', parents=[common])
     parser_create.add_argument('reponame', help='Help for <repository>')
-    parser_create.add_argument('description', nargs="?", default='', help='Help for <description>')
+    parser_create.add_argument('description', nargs="?", default=f'TODO: <Write project description>', help='Help for <description>')
     parser_create.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
     parser_create.formatter_class = CustomHelpFormatter
     parser_create.set_defaults(func=eve_git.create_repo)
