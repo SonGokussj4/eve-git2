@@ -548,14 +548,14 @@ def create_repo(args_create):
     repo = input(f'Repository name [{reponame}]: ')
     repo = reponame if not repo else repo
     if not repo:
-        print(f"[ {BRed}ERROR{RCol} ] You have to enter the name of your repository.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] You have to enter the name of your repository."
+        raise Exception(msg)
 
     desc = input(f'Repository description [{description}]: ')
     desc = description if not desc else desc
     if not desc:
-        print(f"[ {BRed}ERROR{RCol} ] You have to write a small description for your project.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] You have to write a small description for your project."
+        raise Exception(msg)
 
     # Try to create the repo
     repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
@@ -582,17 +582,17 @@ def create_repo(args_create):
 
     # Viable responses
     if res.status_code == 409:
-        print(f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{username}' already exists.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{username}' already exists."
+        raise Exception(msg)
 
     elif res.status_code == 401:
-        print(f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN...")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        raise Exception(msg)
 
     elif res.status_code == 422:
-        print(f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow.")
-        print(f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
+        msg += f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        raise Exception(msg)
 
     elif res.status_code == 201:
         print("[ INFO ] Done. Repository created.")
@@ -604,7 +604,9 @@ def create_repo(args_create):
                             progress=Progress())
 
         print("[ INFO ] DONE")
-        sys.exit(0)
+        return 0
+
+    raise Exception("Something went wrong... Don't know what... Should not happened...")
 
 
 def transfer_repo():
