@@ -662,22 +662,24 @@ def list_org(args):
 @logged
 def list_repo(args):
     """Function for listing directories."""
-    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] Listing repo.")
-    list_repos = args.repository if args.repository is not None else ''
-    url = f"{SERVER}/api/v1/repos/search?q={list_repos}&sort=created&order=desc&limit=50"
-    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] url: '{url}'")
-    res = requests.get(url)
-    data = json.loads(res.content)
+    print(f"[ {BBla}DEBUG{RCol} ] Listing repo.")
 
-    # TODO duplicate functionality, make a function
+    url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
+    print(f"[ {BBla}DEBUG{RCol} ] url: {url}")
+
+    res = requests.get(url)
+    print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
+
+    data = json.loads(res.content)
+    print(f"[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
+
     # Check if there was a good response
     if not data.get('ok'):
         msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
-        # print(msg)
         raise Exception(msg)
-    elif not data.get('data'):
+
+    if not data.get('data'):
         msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
-        # print(msg)
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
