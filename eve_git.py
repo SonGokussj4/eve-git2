@@ -26,11 +26,12 @@ from pathlib import Path
 # Pip Libs
 #==========
 # from profilehooks import profile, timecall, coverage
+import click  # https://pypi.org/project/click/
 import requests
 from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
 from columnar import columnar  # https://pypi.org/project/Columnar/
-from click import style  # https://pypi.org/project/click/
 from colorama import init, Fore, Back, Style
+from PyInquirer import style_from_dict, Token, prompt, Separator  # https://pypi.org/project/PyInquirer/
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 # Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
 # Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
@@ -40,6 +41,7 @@ from autologging import logged, TRACE, traced  # https://pypi.org/project/Autolo
 #===========
 import cli
 from utils import *
+
 
 # ==============================
 # =           COLORS           =
@@ -784,108 +786,118 @@ def clone_repo(args_clone):
 
 @traced
 @logged
-def remove_repo(args_remove):
+def remove_repo(args):
     """Remove repository from gitea"""
-    # print(f"[ DEBUG ] reponame: {args_remove}")
+    print(f"[ {BBla}DEBUG{RCol} ] Removing repo.")
 
-    # User specified both arguments: --clone <reponame> <username>
-    if len(args_remove) == 2:
-        reponame, username = args_remove
+    if not args.username:
+        print(f"[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
-        # Does the username exist?
-        res = requests.get(f"{SERVER}/api/v1/users/{username}")
-        if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
-            sys.exit(1)
-
-        # Does the <repository> of <user> exist?
-        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
-        if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            sys.exit(1)
-
-        # Everything OK, delete the repository
-        print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{username}/{reponame}'")
-        answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
-        if answer.lower() not in ['y', 'yes']:
-            print(f"[ INFO ] Cancelling... Nothing removed.")
-            sys.exit(0)
-
-        answer = input(f"Enter the repository NAME as confirmation [{reponame}]: ")
-        if not answer == reponame:
-            print(f"[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{reponame}'. Cancelling...")
-            sys.exit(1)
-
-        print(f"[ INFO ] Removing '{SERVER}/{username}/{reponame}'")
-        res = requests.delete(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}")
-
-        # Case when something is wrong with GITEA_TOKEN...
-        if res.status_code == 401:
-            print(f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN...")
-            sys.exit()
-
-        # Case when normal user tries to remove repository of another user and doesn't have authorization for that
-        elif res.status_code == 403:
-            print(f"[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository...")
-            sys.exit()
-
-        print("[ INFO ] DONE")
-
-        return 0
-
-    # User didn't specify <username>: --remove <reponame>
-    elif len(args_remove) == 1:
-        reponame = args_remove[0]
-        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
+        res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc")
+        print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
+        print(f"[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
-            sys.exit(1)
-        elif not data.get('data'):
-            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
-            sys.exit(1)
+            msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+            raise Exception(msg)
+
+        if not data.get('data'):
+            msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+            raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
         headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        patterns = [
-            (getpass.getuser(), lambda text: style(text, fg='green')),
-        ]
-        tbl = columnar(results, headers, no_borders=True, patterns=patterns, wrap_max=0)
-        print(tbl)
+        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        tbl_as_string = str(tbl).split('\n')
+        # print(tbl)
 
-        # Ask for repo ID
-        answer = input("Enter repo ID: ")
-        if not answer:
-            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
-            sys.exit(1)
-        elif not answer.isdigit():
-            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-            sys.exit(1)
+        # Ask for repo to remove
+        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
+        choices.extend([{'name': item, 'short': 'eh', 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+        choices.append(Separator('\n'))
 
-        # Get the right repo by it's ID
-        repo_id = int(answer)
+        qstyle = style_from_dict({
+            Token.Separator: '#cc5454',
+            Token.QuestionMark: '#673ab7 bold',
+            Token.Selected: '#cc5454 bold',  # default
+            Token.Pointer: '#673ab7 bold',
+            Token.Instruction: '',  # default
+            Token.Answer: '#f44336 bold',
+            Token.Question: 'bold',
+        })
+
+        questions = [{
+            'type': 'list',
+            'choices': choices,
+            'pageSize': 50,
+            'name': 'repo_id',
+            'message': "Select repo to remove: ",
+        }]
+
+        # TODO --option for non-interactive behaviour
+        answers = prompt(questions, style=qstyle)
+        print(f"[ {BBla}DEBUG{RCol} ] answers: {answers}")
+
+        if not answers.get('repo_id'):
+            msg = f"[ {BRed}ERROR{RCol} ] You have to select an ID"
+            raise Exception(msg)
+
+        repo_id = int(answers.get('repo_id'))
         selected_repository = [ls for ls in results if ls[0] == repo_id]
+        print(f"[ {BBla}DEBUG{RCol} ] selected_repository: {selected_repository[0]}")
 
-        # User made a mistake and entered number is not one of the listed repo IDs
-        if len(selected_repository) == 0:
-            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-            sys.exit(1)
+        args.repository = selected_repository[0][1]
+        print(f"[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
 
-        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(selected_repository) > 1:
-            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
-                  f"Like really... Len is: {len(selected_repository)}")
-            sys.exit(1)
+        args.username = selected_repository[0][2]
+        print(f"[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
-        print(f"[ INFO ] Selected ID: {repo_id}")
-        reponame, username = selected_repository[0][1], selected_repository[0][2]
-        remove_repo([reponame, username])
+    # Does the username exist?
+    res = requests.get(f"{SERVER}/api/v1/users/{args.username}")
+    if res.status_code != 200:
+        msg = f"[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
+        raise Exception(msg)
+
+    # Does the <repository> of <user> exist?
+    res = requests.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    if res.status_code != 200:
+        msg = f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
+        raise Exception(msg)
+
+    # Everything OK, delete the repository
+    print(f"[ {BWhi}INFO{RCol} ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
+    answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+    if answer.lower() not in ['y', 'yes']:
+        print(f"[ {BWhi}INFO{RCol} ] Cancelling... Nothing removed.")
         return 0
+
+    answer = input(f"Enter the repository NAME as confirmation [{args.repository}]: ")
+    if not answer == args.repository:
+        msg = f"[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Cancelling..."
+        raise Exception(msg)
+
+    print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
+
+    res = requests.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}?access_token={GITEA_TOKEN}")
+
+    # Case when something is wrong with GITEA_TOKEN...
+    if res.status_code == 401:
+        msg = f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        raise Exception(msg)
+
+    # Case when normal user tries to remove repository of another user and doesn't have authorization for that
+    elif res.status_code == 403:
+        msg = f"[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository..."
+        raise Exception(msg)
+
+    print(f"[ {BWhi}INFO{RCol} ] DONE")
+
+    return 0
 
 
 def remove_org(args_remove):
@@ -1156,10 +1168,6 @@ if __name__ == '__main__':
 
     elif args.clone:
         clone_repo(args.clone)
-        sys.exit()
-
-    elif args.remove:
-        remove_repo(args.remove)
         sys.exit()
 
     elif args.remove_org:
