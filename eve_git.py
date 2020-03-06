@@ -514,22 +514,22 @@ def create_org(args):
 
     # Viable responses
     if res.status_code == 401:
-        print(f"[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection."
+        raise Exception(msg)
 
     elif res.status_code == 422:
-        print(f"[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists."
+        raise Exception(msg)
 
     elif res.status_code == 422:
-        print(f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow.")
-        print(f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
+        msg += f"\n[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        raise Exception(msg)
 
     elif res.status_code == 201:
-        print("[ INFO ] Done. Organization created.")
+        print(f"[ {BWhi}INFO{RCol} ] Done. Organization created.")
 
-    sys.exit(0)
+    return 0
 
 
 def create_repo(args_create):
