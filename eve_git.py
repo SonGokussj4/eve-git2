@@ -532,35 +532,27 @@ def create_org(args):
     return 0
 
 
-def create_repo(args_create):
-
-    # Default parameters
-    reponame, description, username = '', '', getpass.getuser()
-    if args_create == 'empty':
-        pass
-    elif len(args_create) == 1:
-        reponame = args_create[0]
-    elif len(args_create) == 2:
-        reponame, description = args_create
-    else:
-        reponame, description, username = args_create
-
-    repo = input(f'Repository name [{reponame}]: ')
-    repo = reponame if not repo else repo
+@traced
+@logged
+def create_repo(args):
+    repo = input(f'Repository name [{args.reponame}]: ')
+    repo = args.reponame if not repo else repo
     if not repo:
         msg = f"[ {BRed}ERROR{RCol} ] You have to enter the name of your repository."
         raise Exception(msg)
 
-    desc = input(f'Repository description [{description}]: ')
-    desc = description if not desc else desc
+    desc = input(f'Repository description [{args.description}]: ')
+    desc = args.description if not desc else desc
     if not desc:
         msg = f"[ {BRed}ERROR{RCol} ] You have to write a small description for your project."
         raise Exception(msg)
 
     # Try to create the repo
-    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
-    # TODO toto mel ptinka - zjistit, co delat ACCESS_TOKEN
-    # repo_headers = {'content-type': 'application/json', 'Authorization': 'token ACCESS_TOKEN'}
+    repo_headers = {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}'
+    }
     repo_data = {
         'auto_init': True,
         'name': repo,
@@ -570,19 +562,19 @@ def create_repo(args_create):
         'private': False
     }
 
-    # User entered third argument: username. Only users with admin right can create repos anywhere
-    if type(args_create) == 'list' and len(args_create) == 3:
-        res = requests.post(url=f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}",
-                            headers=repo_headers,
-                            json=repo_data)
-    else:
-        res = requests.post(url=f"{SERVER}/api/v1/admin/users/{username}/repos?access_token={GITEA_TOKEN}",
-                            headers=repo_headers,
-                            json=repo_data)
+    # User specified different user/org. Only users with admin right can create repos anywhere
+    # url = f"{SERVER}/api/v1/user/repos?access_token={GITEA_TOKEN}"
+    url = f"{SERVER}/api/v1/user/repos"
+    if args.username != getpass.getuser():
+        # url = f"{SERVER}/api/v1/admin/users/{args.username}/repos?access_token={GITEA_TOKEN}"
+        url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
+
+    # Post the repo
+    res = requests.post(url=url, headers=repo_headers, json=repo_data)
 
     # Viable responses
     if res.status_code == 409:
-        msg = f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{username}' already exists."
+        msg = f"[ {BRed}ERROR{RCol} ] Repository '{repo}' with the same name under '{args.username}' already exists."
         raise Exception(msg)
 
     elif res.status_code == 401:
@@ -598,7 +590,7 @@ def create_repo(args_create):
         print("[ INFO ] Done. Repository created.")
         answer = input("Clone into current folder? [Y/n]: ")
         if answer.lower() in ['y', 'yes']:
-            Repo.clone_from(url=f"{SERVER}/{username}/{repo}",
+            Repo.clone_from(url=f"{SERVER}/{args.username}/{repo}",
                             to_path=Path(CURDIR.resolve() / repo).resolve(),
                             branch='master',
                             progress=Progress())
@@ -1151,11 +1143,11 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"func(args) Exception... {e}")
 
-    if args.create:
-        create_repo(args.create)
-        sys.exit()
+    # if args.create:
+    #     create_repo(args.create)
+    #     sys.exit()
 
-    elif args.create_org:
+    if args.create_org:
         create_org(args.create_org)
         sys.exit()
 

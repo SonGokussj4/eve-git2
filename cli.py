@@ -3,6 +3,7 @@
 import argparse
 import utils
 import eve_git
+import getpass
 
 # =================================
 # =           CONSTANTS           =
@@ -77,28 +78,36 @@ Description:
     # ==================================
     # =           SUBPARSERS           =
     # ==================================
-    parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
-    parser_create.set_defaults(func=utils.download)
-    parser_create.add_argument('repository', nargs="?", help='Help for <repository>')
-    parser_create.add_argument('description', nargs="?", help='Help for <description>')
+    # parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
+    # parser_create.set_defaults(func=utils.download)
+    # parser_create.add_argument('repository', nargs="?", help='Help for <repository>')
+    # parser_create.add_argument('description', nargs="?", help='Help for <description>')
 
     parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', nargs="?", help='Help for <username>')
-    parser_deploy.add_argument('branch', nargs="?", help='Help for <branch>')
+    parser_deploy.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
+    parser_deploy.add_argument('branch', nargs="?", default='master', help='Help for <branch>')
+    parser_deploy.formatter_class = CustomHelpFormatter
 
     parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
-    parser_list.add_argument('repository', nargs="?", type=str, help='Help for <repository>')
-    parser_list.add_argument('username', nargs="?", default='', type=str, help='Specify user/org')
+    parser_list.add_argument('repository', nargs="?", default='', help='Help for <repository>')
+    parser_list.add_argument('username', nargs="?", default='', help='Specify user/org')
+    parser_list.formatter_class = CustomHelpFormatter
     parser_list.set_defaults(func=eve_git.list_repo)
 
     parser_list_org = subparsers.add_parser('list_org', help='List all the Orgs!!!', parents=[common])
     parser_list_org.set_defaults(func=eve_git.list_org)
 
+    parser_create = subparsers.add_parser('create', help='Create one thing!!!', parents=[common])
+    parser_create.add_argument('reponame', help='Help for <repository>')
+    parser_create.add_argument('description', nargs="?", default='', help='Help for <description>')
+    parser_create.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
+    parser_create.formatter_class = CustomHelpFormatter
+    parser_create.set_defaults(func=eve_git.create_repo)
 
     group = parser.add_mutually_exclusive_group()
 
-    group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
+    group.add_argument('--deploy', dest='deploy', nargs='+',
                        action=required_length(1, 3),
                        metavar=('repository', 'username'),
                        # choices=['master', 'next'],
@@ -110,10 +119,10 @@ Description:
     # group.add_argument('--description', dest='description', action='store_true',
     #                    help='Edit description file of <project_name>')
 
-    group.add_argument('--create', dest='create', nargs='*', type=str,
-                       action=required_length(0, 3),
-                       metavar=('repository', 'description'),
-                       help='Create new remote [repository], [description], [user]')
+    # group.add_argument('--create', dest='create', nargs='*', type=str,
+    #                    action=required_length(0, 3),
+    #                    metavar=('repository', 'description'),
+    #                    help='Create new remote [repository], [description], [user]')
 
     group.add_argument('--remove', dest='remove', nargs='+', type=str,
                        action=required_length(1, 2),
