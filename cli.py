@@ -117,12 +117,6 @@ Description:
 
     group = parser.add_mutually_exclusive_group()
 
-    group.add_argument('--deploy', dest='deploy', nargs='+',
-                       action=required_length(1, 3),
-                       metavar=('repository', 'username'),
-                       # choices=['master', 'next'],
-                       help='Deploy project <repository> to production')
-
     # group.add_argument('--info', dest='info', action='store_true',
     #                    help='Show one-line description of <project_name>')
 

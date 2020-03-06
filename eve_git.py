@@ -57,10 +57,10 @@ Yel, BYel = Fore.YELLOW, f'{Fore.YELLOW}{Style.BRIGHT}'
 
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
-    print(f"[ {BRed}ERROR{RCol} ] Hell NO! You're using Python2!! That's not cool man...")
+    print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Hell NO! You're using Python2!! That's not cool man...")
     sys.exit()
 if sys.version_info.minor <= 6:
-    print(f"[ {BRed}ERROR{RCol} ] Nah... Your Python version have to be at least 3.7. Sorry")
+    print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Nah... Your Python version have to be at least 3.7. Sorry")
     sys.exit()
 
 
@@ -120,7 +120,8 @@ def init_logging(args):
 
     logging.basicConfig(
         level=log_level, stream=sys.stderr,
-        format="%(levelname)s:%(filename)s,%(lineno)d:%(name)s.%(funcName)s:%(message)s")
+        # format="[ %(levelname)s ] :%(filename)s,%(lineno)d:%(name)s.%(funcName)s:%(message)s")
+        format="[ %(levelname)s ] %(funcName)s: %(message)s")
 
 
 def lineno(msg=None):
@@ -147,7 +148,7 @@ def deploy(args):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            raise Exception(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
+            raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
         print(f"[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
 
         # ================================================================
@@ -156,9 +157,9 @@ def deploy(args):
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             # sys.exit(1)
-            raise Exception(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
         print(f"[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
 
         # Everything OK, clone the repository to /tmp/<reponame>
@@ -174,8 +175,8 @@ def deploy(args):
             try:
                 res = shutil.rmtree(tmp_dir)
             except Exception as e:
-                print(f"[ {BRed}ERROR{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-                print(f"[ {BRed}ERROR{RCol} ] +-- Message: '{e}'")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] +-- Message: '{e}'")
                 os.system(f'rmdir /S /Q "{tmp_dir}"')
 
         # ================================================
@@ -353,7 +354,7 @@ def deploy(args):
         # try:
         #     res = sp.call(shlex.split(cmd))
         #     if res != 0:
-        #         print(f"[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
+        #         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
         #         return 1
         # except Exception as e:
         #     print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
@@ -424,10 +425,10 @@ def deploy(args):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             return 1
         elif not data.get('data'):
-            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             return 1
 
         # Data acquired, list all found repos in nice table
@@ -440,10 +441,10 @@ def deploy(args):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
             return 1
         elif not answer.isdigit():
-            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             return 1
 
         # Get the right repo by it's ID
@@ -452,12 +453,12 @@ def deploy(args):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -490,13 +491,13 @@ def create_org(args):
     org_name = input(f'Organization name [{org_name_input}]: ')
     org_name = org_name_input if not org_name else org_name
     if not org_name:
-        msg = f"[ {BRed}ERROR{RCol} ] You have to enter the name of the organization."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to enter the name of the organization."
         raise Exception(msg)
 
     desc = input(f'Organization description [{description}]: ')
     desc = f'{description}\n' if not desc else desc
     if not desc:
-        msg = f"[ {BRed}ERROR{RCol} ] You have to specify organization description."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to specify organization description."
         raise Exception(msg)
 
     # Try to create the org_name
@@ -515,16 +516,16 @@ def create_org(args):
 
     # Viable responses
     if res.status_code == 401:
-        msg = f"[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection."
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists."
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
-        msg += f"\n[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
+        msg += f"\n{lineno(): >4}.[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
         raise Exception(msg)
 
     elif res.status_code == 201:
@@ -573,20 +574,20 @@ def create_repo(args):
 
     # Viable responses
     if res.status_code == 409:
-        msg = f"[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
         raise Exception(msg)
 
     elif res.status_code == 401:
-        msg = f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
-        msg += f"[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
+        msg += f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
         raise Exception(msg)
 
     elif res.status_code != 201:
-        msg = f"[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. status_code: {res.status_code}"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. status_code: {res.status_code}"
         raise Exception(msg)
 
     print(f"[ {BWhi}INFO{RCol} ] Repository created.")
@@ -636,11 +637,11 @@ def list_org(args):
 
     res = requests.get(url)
     if res.status_code == 403:
-        msg = f"[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
         raise Exception(msg)
 
     elif res.status_code == 404:
-        msg = f"[ {BRed}ERROR{RCol} ] 404 - url page not found: '{url}'"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] 404 - url page not found: '{url}'"
         raise Exception(msg)
 
     elif res.status_code == 200:
@@ -648,7 +649,7 @@ def list_org(args):
         data = json.loads(res.content)
 
     else:
-        msg = f"[ {BRed}ERROR{RCol} ] Unknown error"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error"
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
@@ -677,11 +678,11 @@ def list_repo(args):
 
     # Check if there was a good response
     if not data.get('ok'):
-        msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
         raise Exception(msg)
 
     if not data.get('data'):
-        msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
@@ -715,13 +716,13 @@ def clone_repo(args_clone):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
             sys.exit(1)
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
         # Everything OK, clone the repository
@@ -741,10 +742,10 @@ def clone_repo(args_clone):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             sys.exit(1)
         elif not data.get('data'):
-            print(f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             sys.exit(1)
 
         # Data acquired, list all found repos in nice table
@@ -757,10 +758,10 @@ def clone_repo(args_clone):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
-            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -769,12 +770,12 @@ def clone_repo(args_clone):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -801,11 +802,11 @@ def remove_repo(args):
 
         # Check if there was a good response
         if not data.get('ok'):
-            msg = f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
             raise Exception(msg)
 
         if not data.get('data'):
-            msg = f"[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
             raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
@@ -844,7 +845,7 @@ def remove_repo(args):
         print(f"[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
         if not answers.get('repo_id'):
-            msg = f"[ {BRed}ERROR{RCol} ] You have to select an ID"
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
             raise Exception(msg)
 
         repo_id = int(answers.get('repo_id'))
@@ -860,13 +861,13 @@ def remove_repo(args):
     # Does the username exist?
     res = requests.get(f"{SERVER}/api/v1/users/{args.username}")
     if res.status_code != 200:
-        msg = f"[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
         raise Exception(msg)
 
     # Does the <repository> of <user> exist?
     res = requests.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
     if res.status_code != 200:
-        msg = f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
         raise Exception(msg)
 
     # Everything OK, delete the repository
@@ -878,7 +879,7 @@ def remove_repo(args):
 
     answer = input(f"Enter the repository NAME as confirmation [{args.repository}]: ")
     if not answer == args.repository:
-        msg = f"[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Cancelling..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Cancelling..."
         raise Exception(msg)
 
     print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
@@ -887,12 +888,12 @@ def remove_repo(args):
 
     # Case when something is wrong with GITEA_TOKEN...
     if res.status_code == 401:
-        msg = f"[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
         raise Exception(msg)
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
     elif res.status_code == 403:
-        msg = f"[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository..."
         raise Exception(msg)
 
     print(f"[ {BWhi}INFO{RCol} ] DONE")
@@ -911,7 +912,7 @@ def remove_org(args_remove):
 
         # Case repo does not exist
         if res.status_code == 404:
-            print(f"[ {BRed}ERROR{RCol} ] Organization '{orgname}' not found...")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Organization '{orgname}' not found...")
 
             # Get all organizations
             res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
@@ -920,7 +921,7 @@ def remove_org(args_remove):
             # TODO Duplicate Data....
             # Check if there was a good response
             if not data:
-                print(f"[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
                 sys.exit(1)
 
             print("Which Organization you want to delete?")
@@ -934,10 +935,10 @@ def remove_org(args_remove):
             # Ask for org ID
             answer = input("Enter org ID: ")
             if not answer:
-                print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
                 sys.exit(1)
             elif not answer.isdigit():
-                print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
                 sys.exit(1)
 
             # Get the right org by it's ID
@@ -946,12 +947,12 @@ def remove_org(args_remove):
 
             # User made a mistake and entered number is not one of the listed repo IDs
             if len(selected_organization) == 0:
-                print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
                 sys.exit(1)
 
             # Something went wrong. There should not be len > 1... Where's the mistake in the code?
             elif len(selected_organization) > 1:
-                print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
                       f"Like really... Len is: {len(selected_organization)}")
                 sys.exit(1)
 
@@ -973,7 +974,7 @@ def remove_org(args_remove):
 
             answer = input(f"Enter the organization NAME as confirmation [{orgname}]: ")
             if not answer == orgname:
-                print(f"[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
                 sys.exit(1)
 
             print(f"[ INFO ] Deleting organization '{orgname}'")
@@ -985,7 +986,7 @@ def remove_org(args_remove):
                 return 0
 
             elif res.status_code == 401:
-                print(f"[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository.")
+                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository.")
                 sys.exit(1)
 
     elif args_remove == 'empty':
@@ -995,7 +996,7 @@ def remove_org(args_remove):
 
         # Check if there was a good response
         if not data:
-            print(f"[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
             sys.exit(1)
 
         print("Which Organization you want to delete?")
@@ -1009,10 +1010,10 @@ def remove_org(args_remove):
         # Ask for org ID
         answer = input("Enter org ID: ")
         if not answer:
-            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
-            print(f"[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right org by it's ID
@@ -1021,12 +1022,12 @@ def remove_org(args_remove):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_organization) == 0:
-            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_organization) > 1:
-            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_organization)}")
             sys.exit(1)
 
@@ -1047,13 +1048,13 @@ def edit_desc(args_clone):
         # Does the username exist?
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
             sys.exit(1)
 
         # Does the <repository> of <user> exist?
         res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             sys.exit(1)
 
         # Everything OK, edit description
@@ -1069,7 +1070,7 @@ def edit_desc(args_clone):
                              headers=repo_headers,
                              json=repo_data)
         if res.status_code != 200:
-            print(f"[ {BRed}ERROR{RCol} ] ")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] ")
             sys.exit(1)
 
         print("[ INFO ] DONE")
@@ -1086,11 +1087,11 @@ def edit_desc(args_clone):
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
             sys.exit(1)
         elif not data.get('data'):
             print(
-                f"[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
+                f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
             sys.exit(1)
 
         # Data acquired, list all found repos in nice table
@@ -1103,11 +1104,11 @@ def edit_desc(args_clone):
         # Ask for repo ID
         answer = input("Enter repo ID: ")
         if not answer:
-            print(f"[ {BRed}ERROR{RCol} ] You have to write an ID")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
             sys.exit(1)
         elif not answer.isdigit():
             print(
-                "[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+                "{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -1116,12 +1117,12 @@ def edit_desc(args_clone):
 
         # User made a mistake and entered number is not one of the listed repo IDs
         if len(selected_repository) == 0:
-            print(f"[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
             sys.exit(1)
 
         # Something went wrong. There should not be len > 1... Where's the mistake in the code?
         elif len(selected_repository) > 1:
-            print(f"[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
+            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
                   f"Like really... Len is: {len(selected_repository)}")
             sys.exit(1)
 
@@ -1143,12 +1144,13 @@ if __name__ == '__main__':
     print(f"[ DEBUG ] args: {args}")
     print("--------------------------------------------------------------------------------")
 
+    # Initialize logger depending on the -v, -vv, -vvv arguments
     init_logging(args)
 
     # In case of no input, show help
     # if not any(vars(args).values()):
     if not len(sys.argv) > 1:
-        print(f"[ {BRed}ERROR{RCol} ] No arguments... Showing help.")
+        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] No arguments... Showing help.")
         print()
         parser.print_help()
         sys.exit()
@@ -1156,11 +1158,7 @@ if __name__ == '__main__':
     try:
         args.func(args)
     except Exception as e:
-        print(f"func(args) Exception... {e}")
-
-    # if args.create:
-    #     create_repo(args.create)
-    #     sys.exit()
+        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
 
     if args.create_org:
         create_org(args.create_org)
@@ -1176,8 +1174,4 @@ if __name__ == '__main__':
 
     elif args.edit:
         edit_desc(args.edit)
-        sys.exit()
-
-    elif args.deploy:
-        deploy(args.deploy)
         sys.exit()
