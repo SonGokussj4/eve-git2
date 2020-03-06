@@ -81,27 +81,12 @@ Description:
     # =           SUBPARSERS           =
     # ==================================
 
-    # DEPLOY
-    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
-    parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
-    parser_deploy.add_argument('branch', nargs="?", default='master', help='Help for <branch>')
-    parser_deploy.formatter_class = CustomHelpFormatter
-
     # LIST
     parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
     parser_list.add_argument('repository', nargs="?", default='', help='Help for <repository>')
     parser_list.add_argument('username', nargs="?", default='', help='Specify user/org')
     parser_list.formatter_class = CustomHelpFormatter
     parser_list.set_defaults(func=eve_git.list_repo)
-
-    # REMOVE
-    parser_remove = subparsers.add_parser('remove', help='Remove one thing!!!', parents=[common])
-    parser_remove.add_argument('repository', help='Help for <repository>')
-    parser_remove.add_argument('username', nargs="?", help='Specify user/org')
-    # parser_remove.add_argument('username', nargs="?", default=getpass.getuser(), help='Specify user/org')
-    parser_remove.formatter_class = CustomHelpFormatter
-    parser_remove.set_defaults(func=eve_git.remove_repo)
 
     # LIST_ORG
     parser_list_org = subparsers.add_parser('list_org', help='List all the Orgs!!!', parents=[common])
@@ -114,6 +99,31 @@ Description:
     parser_create.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
     parser_create.formatter_class = CustomHelpFormatter
     parser_create.set_defaults(func=eve_git.create_repo)
+
+    # CREATE_ORG
+    parser_create = subparsers.add_parser('create_org', help='Create one org thing!!!', parents=[common])
+    parser_create.add_argument('organization', help='Help for <organization>')
+    parser_create.add_argument('description', nargs="?", default=f'TODO: <Write organization description>', help='Help for <description>')
+    parser_create.add_argument('fullname', nargs="?", default='', help='Help for <fullname>')
+    parser_create.add_argument('visibility', nargs="?", default='public', help='Help for <visibility>')
+    parser_create.formatter_class = CustomHelpFormatter
+    parser_create.set_defaults(func=eve_git.create_org)
+
+    # DEPLOY
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
+    parser_deploy.add_argument('repository', help='Help for <repository>')
+    parser_deploy.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
+    parser_deploy.add_argument('branch', nargs="?", default='master', help='Help for <branch>')
+    parser_deploy.formatter_class = CustomHelpFormatter
+
+    # REMOVE
+    parser_remove = subparsers.add_parser('remove', help='Remove one thing!!!', parents=[common])
+    parser_remove.add_argument('repository', help='Help for <repository>')
+    parser_remove.add_argument('username', nargs="?", help='Specify user/org')
+    parser_remove.formatter_class = CustomHelpFormatter
+    parser_remove.set_defaults(func=eve_git.remove_repo)
+
+
 
     group = parser.add_mutually_exclusive_group()
 

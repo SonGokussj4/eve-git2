@@ -3,6 +3,7 @@
 import requests
 from pathlib import Path
 from colorama import Style, Fore
+from autologging import logged, traced
 
 
 # ==============================
@@ -33,6 +34,8 @@ def download(url: str, filepath):
     return filepath
 
 
+@traced
+@logged
 def ask_with_defaults(question: str, defaults=''):
     """Return user input with optional default argument.
 

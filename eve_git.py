@@ -127,7 +127,7 @@ def init_logging(args):
 def lineno(msg=None):
     if not msg:
         return sys._getframe().f_back.f_lineno
-    print(f"[ Debug ] {sys._getframe().f_back.f_lineno}: {msg if msg is not None else ''}")
+    print(f"{lineno(): >4}.[ {BBla}Debug{RCol} ] {sys._getframe().f_back.f_lineno}: {msg if msg is not None else ''}")
 
 
 @traced
@@ -149,7 +149,7 @@ def deploy(args):
         res = requests.get(f"{SERVER}/api/v1/users/{username}")
         if res.status_code != 200:
             raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
-        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
 
         # ================================================================
         # =           CHECK FOR <repository> AND <user> EXISTS           =
@@ -160,7 +160,7 @@ def deploy(args):
             print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
             # sys.exit(1)
             raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-        print(f"[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
 
         # Everything OK, clone the repository to /tmp/<reponame>
         tmp_dir = Path('/tmp') / reponame
@@ -192,7 +192,7 @@ def deploy(args):
         # ==========================================
         # =           REMOVE .GIT FOLDER           =
         # ==========================================
-        print(f"[ {BBla}DEBUG{RCol} ] Removing '.git' folder")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing '.git' folder")
         git_folder = tmp_dir / '.git'
         try:
             res = shutil.rmtree(git_folder)
@@ -204,14 +204,14 @@ def deploy(args):
         # ========================================
         # =           LOAD REPO.CONFIG           =
         # ========================================
-        print(f"[ {BBla}DEBUG{RCol} ] Checking 'repo.config'")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking 'repo.config'")
         repoini = tmp_dir / 'repo.config'
         # repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repo.config')
         if not repoini.exists():
             print(f"[ {BWhi}INFO{RCol}  ] '{repoini}' not found... Ignoring making executables, symlinks, ...")
             print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
         else:
-            print(f"[ {BBla}DEBUG{RCol} ] '{repoini}' found. Loading config.")
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{repoini}' found. Loading config.")
             con = configparser.ConfigParser(allow_no_value=True)
             con.read(repoini)
             # print(f">>> con['repo']['framework']: {con['repo']['framework']}")
@@ -219,7 +219,7 @@ def deploy(args):
             # =============================================
             # =           MAKE FILES EXECUTABLE           =
             # =============================================
-            print(f"[ {BBla}DEBUG{RCol} ] Changing all FILE permissions in '{tmp_dir}' to 664")
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Changing all FILE permissions in '{tmp_dir}' to 664")
             for item in tmp_dir.iterdir():
                 item: Path
                 if not item.is_file():
@@ -231,7 +231,7 @@ def deploy(args):
                 if not exe_file.exists():
                     print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repo.config'.")
                     continue
-                print(f"[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
+                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
                 os.chmod(exe_file, 0o774)
 
             # ================================================================================
@@ -242,14 +242,14 @@ def deploy(args):
 
             venv_update = False
             if src_requirements.exists():
-                print(f"[ {BBla}DEBUG{RCol} ] '{src_requirements}' exists.")
+                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{src_requirements}' exists.")
                 dst_requirements = target_dir / 'requirements.txt'
                 if not dst_requirements.exists():
-                    print(f"[ {BBla}DEBUG{RCol} ] '{dst_requirements}' does not exists.")
+                    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{dst_requirements}' does not exists.")
                     print(f"[ {BWhi}INFO{RCol}  ] Missing '{dst_requirements}' --> Installing '.env' and all 'PIP libs'.")
                     venv_update = True
                 else:
-                    print(f"[ {BBla}DEBUG{RCol} ] '{dst_requirements}' exists.")
+                    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{dst_requirements}' exists.")
                     similar = filecmp.cmp(src_requirements, dst_requirements)
                     if similar:
                         print(f"[ {BWhi}INFO{RCol}  ] '{src_requirements}' and '{dst_requirements}' are the same. No need to update .env")
@@ -265,7 +265,7 @@ def deploy(args):
                 framework = con['Repo']['Framework']
                 print(f"[ {BWhi}INFO{RCol}  ] Making virtual environment...")
                 cmd = f'{framework} -m venv {tmp_dir}/.env'
-                print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
                 os.system(cmd)
 
                 # ===================================
@@ -288,7 +288,7 @@ def deploy(args):
             target_dir = SKRIPTY_DIR / reponame
             print(f"[ {BWhi}INFO{RCol}  ] Changing venv paths '{tmp_dir}/.env' --> '{target_dir}/.env'")
             cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
-            print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
             os.system(cmd)
 
             # ===================================================
@@ -307,7 +307,7 @@ def deploy(args):
             if not target_dir.exists():
                 cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
                 os.system(cmd)
-                print(f"[ {BBla}DEBUG{RCol} ] {target_dir} created.")
+                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] {target_dir} created.")
 
             # ==========================================
             # =           RSYNC ALL THE DATA           =
@@ -321,7 +321,7 @@ def deploy(args):
                 # cmd = (f'rsync -avh --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
                 cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
                        f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
-            print(f"[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
             res = os.system(cmd)
 
             # =============================================
@@ -332,14 +332,14 @@ def deploy(args):
                 link_filpath = SKRIPTY_EXE / val
                 print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{link_filpath}'")
                 cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {link_filpath}"'
-                print(f"[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
                 os.system(cmd)
 
         # ===============================
         # =           CLEANUP           =
         # ===============================
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        print(f"[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
 
         # ==============================
         # =           FINISH           =
@@ -347,10 +347,13 @@ def deploy(args):
 
         print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
 
+        # ========================================
+        # =           WINDOWS THINGIES           =
+        # ========================================
         # # Rsync all the things
         # # --delete ... for files that are not present in the current...
         # cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
-        # print(f"[ DEBUG ] shlex.split(cmd): {shlex.split(cmd)}")
+        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] shlex.split(cmd): {shlex.split(cmd)}")
         # try:
         #     res = sp.call(shlex.split(cmd))
         #     if res != 0:
@@ -390,26 +393,26 @@ def deploy(args):
         #                 link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
         #                 link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
         #                 if os.name == 'nt':
-        #                     print(f"[ DEBUG ] Doing: 'mklink {link_src} {link_dst}'")
+        #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'mklink {link_src} {link_dst}'")
         #                     cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
         #                     # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
         #                     print(f">>> cmd: {cmd}")
         #                     res = sp.call(cmd)
         #                     # print(f">>> res: {res}")
         #                 else:
-        #                     print(f"[ DEBUG ] Doing: 'ln -s {link_src} {link_dst}'")
+        #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'ln -s {link_src} {link_dst}'")
         #                     cmd = f'ln -s {link_src} {link_dst}'
         #                     print(f">>> cmd: {cmd}")
         #                     res = sp.call(shlex.split(cmd))
         #                 pass
         #             elif section == 'executable':
         #                 executable_file = SKRIPTY_DIR / reponame / key
-        #                 print(f"[ DEBUG ] Doing: chmod +x {executable_file}")
+        #                 print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: chmod +x {executable_file}")
         #                 pass
         # else:
         #     print('[ INFO ] config.ini not found. Ignoring.')
 
-        # print("[ DEBUG ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
+        # print("{lineno(): >4}.[ {BBla}DEBUG{RCol} ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
         # # Check the description for 'what to do with .executable files and so on...'
         # print(f'[ INFO ] DONE')
 
@@ -419,7 +422,7 @@ def deploy(args):
     elif len(args) == 1:
         reponame = args[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"[ DEBUG ] res: {res}")
+        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
 
@@ -479,40 +482,36 @@ def deploy(args):
 
 def create_org(args):
     """Function Description."""
-    # Default parameters
-    org_name_input, description, = '', ''
-    if args == 'empty':
-        pass
-    elif len(args) == 1:
-        org_name_input = args[0]
-    elif len(args) == 2:
-        org_name_input, description = args
+    args.organization = ask_with_defaults('Organization name', defaults=args.organization)
+    args.description = ask_with_defaults('Description', defaults=args.description)
+    args.fullname = ask_with_defaults('Full Name', defaults=args.fullname)
+    args.visibility = ask_with_defaults('Visibility (public|private)', defaults=args.visibility)
 
-    org_name = input(f'Organization name [{org_name_input}]: ')
-    org_name = org_name_input if not org_name else org_name
-    if not org_name:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to enter the name of the organization."
-        raise Exception(msg)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.organization}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.fullname: {args.fullname}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.visibility: {args.visibility}")
 
-    desc = input(f'Organization description [{description}]: ')
-    desc = f'{description}\n' if not desc else desc
-    if not desc:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to specify organization description."
-        raise Exception(msg)
-
-    # Try to create the org_name
-    repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
-    repo_data = {
-        "description": desc,
-        # "full_name": full_name,  # TODO moznost zadani?
-        "repo_admin_change_team_access": True,
-        "username": org_name,  # Org name
-        "visibility": "public",
+    # Construct Headers and Data
+    repo_headers = {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}'
     }
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
 
-    res = requests.post(url=f"{SERVER}/api/v1/orgs/?access_token={GITEA_TOKEN}",
-                        headers=repo_headers,
-                        json=repo_data)
+    repo_data = {
+        "description": args.description,
+        "full_name": args.fullname,
+        "repo_admin_change_team_access": True,
+        "username": args.organization,  # THIS is Organization name
+        "visibility": args.visibility,
+    }
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_data: {repo_data}")
+
+    # Create organization
+    res = requests.post(url=f"{SERVER}/api/v1/orgs", headers=repo_headers, json=repo_data)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     # Viable responses
     if res.status_code == 401:
@@ -520,7 +519,7 @@ def create_org(args):
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{org_name}' with the same name already exists."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.organization}' with the same name already exists."
         raise Exception(msg)
 
     elif res.status_code == 422:
@@ -528,8 +527,11 @@ def create_org(args):
         msg += f"\n{lineno(): >4}.[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
         raise Exception(msg)
 
-    elif res.status_code == 201:
-        print(f"[ {BWhi}INFO{RCol} ] Done. Organization created.")
+    elif res.status_code != 201:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error when trying to create new organization. Status_code: {res.status_code}"
+        raise Exception(msg)
+
+    print(f"[ {BGre}INFO{RCol} ] Done. Organization created.")
 
     return 0
 
@@ -538,10 +540,10 @@ def create_org(args):
 @logged
 def create_repo(args):
     args.reponame = ask_with_defaults('Repository name', defaults=args.reponame)
-    args.description = ask_with_defaults('Repository name', defaults=args.description)
+    args.description = ask_with_defaults('Description', defaults=args.description)
 
-    print(f"[ {BBla}DEBUG{RCol} ] args.reponame: {args.reponame}")
-    print(f"[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.reponame}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
     # log.debug(f"args.description: {args.description}")
 
     # Try to create the repo
@@ -550,7 +552,7 @@ def create_repo(args):
         'content-type': 'application/json',
         'Authorization': f'token {GITEA_TOKEN}'
     }
-    print(f"[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
 
     repo_data = {
         'auto_init': True,
@@ -560,17 +562,17 @@ def create_repo(args):
         # 'gitignores': 'Evektor',
         'private': False
     }
-    print(f"[ {BBla}DEBUG{RCol} ] repo_data: {repo_data}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_data: {repo_data}")
 
     # User specified different user/org. Only users with admin right can create repos anywhere
     url = f"{SERVER}/api/v1/user/repos"
     if args.username != getpass.getuser():
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
-    print(f"[ {BBla}DEBUG{RCol} ] url: {url}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
     # Post the repo
     res = requests.post(url=url, headers=repo_headers, json=repo_data)
-    print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     # Viable responses
     if res.status_code == 409:
@@ -587,7 +589,7 @@ def create_repo(args):
         raise Exception(msg)
 
     elif res.status_code != 201:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. status_code: {res.status_code}"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. Status_code: {res.status_code}"
         raise Exception(msg)
 
     print(f"[ {BWhi}INFO{RCol} ] Repository created.")
@@ -630,10 +632,10 @@ def transfer_repo():
 @logged
 def list_org(args):
     """Function for listing organizations."""
-    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] Listing organizations")
+    print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] Listing organizations")
 
     url = f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}"
-    print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] url: '{url}'")
+    print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: '{url}'")
 
     res = requests.get(url)
     if res.status_code == 403:
@@ -645,7 +647,7 @@ def list_org(args):
         raise Exception(msg)
 
     elif res.status_code == 200:
-        print(f"[{lineno()}] [ {BBla}DEBUG{RCol} ] All ok. Here is the list.")
+        print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] All ok. Here is the list.")
         data = json.loads(res.content)
 
     else:
@@ -665,16 +667,16 @@ def list_org(args):
 @logged
 def list_repo(args):
     """Function for listing directories."""
-    print(f"[ {BBla}DEBUG{RCol} ] Listing repo.")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Listing repo.")
 
     url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
-    print(f"[ {BBla}DEBUG{RCol} ] url: {url}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
     res = requests.get(url)
-    print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     data = json.loads(res.content)
-    print(f"[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
 
     # Check if there was a good response
     if not data.get('ok'):
@@ -736,7 +738,7 @@ def clone_repo(args_clone):
     elif len(args_clone) == 1:
         reponame = args_clone[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"[ DEBUG ] res: {res}")
+        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
 
@@ -789,16 +791,16 @@ def clone_repo(args_clone):
 @logged
 def remove_repo(args):
     """Remove repository from gitea"""
-    print(f"[ {BBla}DEBUG{RCol} ] Removing repo.")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing repo.")
 
     if not args.username:
-        print(f"[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc")
-        print(f"[ {BBla}DEBUG{RCol} ] res: {res}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
-        print(f"[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
 
         # Check if there was a good response
         if not data.get('ok'):
@@ -825,9 +827,9 @@ def remove_repo(args):
         qstyle = style_from_dict({
             Token.Separator: '#cc5454',
             Token.QuestionMark: '#673ab7 bold',
-            Token.Selected: '#cc5454 bold',  # default
+            Token.Selected: '#cc5454 bold',
             Token.Pointer: '#673ab7 bold',
-            Token.Instruction: '',  # default
+            Token.Instruction: '',
             Token.Answer: '#f44336 bold',
             Token.Question: 'bold',
         })
@@ -842,7 +844,7 @@ def remove_repo(args):
 
         # TODO --option for non-interactive behaviour
         answers = prompt(questions, style=qstyle)
-        print(f"[ {BBla}DEBUG{RCol} ] answers: {answers}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
         if not answers.get('repo_id'):
             msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
@@ -850,13 +852,13 @@ def remove_repo(args):
 
         repo_id = int(answers.get('repo_id'))
         selected_repository = [ls for ls in results if ls[0] == repo_id]
-        print(f"[ {BBla}DEBUG{RCol} ] selected_repository: {selected_repository[0]}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] selected_repository: {selected_repository[0]}")
 
         args.repository = selected_repository[0][1]
-        print(f"[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
 
         args.username = selected_repository[0][2]
-        print(f"[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
     # Does the username exist?
     res = requests.get(f"{SERVER}/api/v1/users/{args.username}")
@@ -1081,7 +1083,7 @@ def edit_desc(args_clone):
         reponame = args_clone[0]
         res = requests.get(
             f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"[ DEBUG ] res: {res}")
+        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
 
@@ -1108,7 +1110,7 @@ def edit_desc(args_clone):
             sys.exit(1)
         elif not answer.isdigit():
             print(
-                "{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
+                f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
             sys.exit(1)
 
         # Get the right repo by it's ID
@@ -1141,7 +1143,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print("--------------------------------------------------------------------------------")
-    print(f"[ DEBUG ] args: {args}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args: {args}")
     print("--------------------------------------------------------------------------------")
 
     # Initialize logger depending on the -v, -vv, -vvv arguments
