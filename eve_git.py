@@ -489,14 +489,14 @@ def create_org(args):
     org_name = input(f'Organization name [{org_name_input}]: ')
     org_name = org_name_input if not org_name else org_name
     if not org_name:
-        print(f"[ {BRed}ERROR{RCol} ] You have to enter the name of the organization.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] You have to enter the name of the organization."
+        raise Exception(msg)
 
     desc = input(f'Organization description [{description}]: ')
     desc = f'{description}\n' if not desc else desc
     if not desc:
-        print(f"[ {BRed}ERROR{RCol} ] You have to specify organization description.")
-        sys.exit(1)
+        msg = f"[ {BRed}ERROR{RCol} ] You have to specify organization description."
+        raise Exception(msg)
 
     # Try to create the org_name
     repo_headers = {'accept': 'application/json', 'content-type': 'application/json'}
