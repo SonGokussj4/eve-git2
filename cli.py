@@ -109,13 +109,6 @@ Description:
     parser_create.formatter_class = CustomHelpFormatter
     parser_create.set_defaults(func=eve_git.create_org)
 
-    # DEPLOY
-    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
-    parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
-    parser_deploy.add_argument('branch', nargs="?", default='master', help='Help for <branch>')
-    parser_deploy.formatter_class = CustomHelpFormatter
-
     # REMOVE
     parser_remove = subparsers.add_parser('remove', help='Remove one thing!!!', parents=[common])
     parser_remove.add_argument('repository', help='Help for <repository>')
@@ -123,7 +116,18 @@ Description:
     parser_remove.formatter_class = CustomHelpFormatter
     parser_remove.set_defaults(func=eve_git.remove_repo)
 
+    # REMOVE_ORG
+    parser_remove_org = subparsers.add_parser('remove_org', help='Remove one ORG thing!!!', parents=[common])
+    parser_remove_org.add_argument('organization', nargs="?", help='Help for <organization>')
+    parser_remove_org.formatter_class = CustomHelpFormatter
+    parser_remove_org.set_defaults(func=eve_git.remove_org)
 
+    # DEPLOY
+    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
+    parser_deploy.add_argument('repository', help='Help for <repository>')
+    parser_deploy.add_argument('username', nargs="?", default=getpass.getuser(), help='Help for <username>')
+    parser_deploy.add_argument('branch', nargs="?", default='master', help='Help for <branch>')
+    parser_deploy.formatter_class = CustomHelpFormatter
 
     group = parser.add_mutually_exclusive_group()
 
@@ -132,16 +136,6 @@ Description:
 
     # group.add_argument('--description', dest='description', action='store_true',
     #                    help='Edit description file of <project_name>')
-
-    group.add_argument('--create_org', dest='create_org', nargs='*', type=str,
-                       action=required_length(0, 2),
-                       metavar=('organization', 'description'),
-                       help='Create new [organization], [description]')
-
-    group.add_argument('--remove_org', dest='remove_org', nargs='+', type=str,
-                       action=required_length(1, 1),
-                       metavar=('organization'),
-                       help='Remove remote <organization>')
 
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),

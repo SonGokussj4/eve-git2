@@ -480,6 +480,8 @@ def deploy(args):
     return 0
 
 
+@traced
+@logged
 def create_org(args):
     """Function Description."""
     args.organization = ask_with_defaults('Organization name', defaults=args.organization)
@@ -610,22 +612,6 @@ def transfer_repo():
     # TODO: bude ve verzi 1.12.0
     # TODO: trnasfer chybel v lokalni gitea (https://gitea.avalon.konstru.evektor.cz/api/swagger)
     pass
-    # reponame = "Test"
-    # description = "Test3"
-    # private = False
-    # organization = "P135"
-    # print("Server: ", SERVER)
-    # print("TOKEN: ", GITEA_TOKEN)
-
-    # repo_data = {'new_owner': organization}
-    # # repo_headers = {'accept': 'application/json', 'content-type': 'application/json',
-    # #                 'Authorization': 'token ACCESS_TOKEN'}
-    # res = requests.post(
-    #     f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}",
-    #     headers=repo_headers, json=repo_data)
-    # print(res)
-    # print(f"{SERVER}/api/v1/repos/ptinka/{reponame}/transfer?access_token={GITEA_TOKEN}")
-    # pass
 
 
 @traced
@@ -816,12 +802,12 @@ def remove_repo(args):
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
         tbl = columnar(results, headers, no_borders=True, wrap_max=0)
-        tbl_as_string = str(tbl).split('\n')
         # print(tbl)
+        tbl_as_string = str(tbl).split('\n')
 
         # Ask for repo to remove
         choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
-        choices.extend([{'name': item, 'short': 'eh', 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
         choices.append(Separator('\n'))
 
         qstyle = style_from_dict({
@@ -842,7 +828,6 @@ def remove_repo(args):
             'message': "Select repo to remove: ",
         }]
 
-        # TODO --option for non-interactive behaviour
         answers = prompt(questions, style=qstyle)
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
@@ -903,141 +888,113 @@ def remove_repo(args):
     return 0
 
 
-def remove_org(args_remove):
-    """Remove repository from gitea"""
-    # User specified both arguments: --clone <reponame> <username>
-    if len(args_remove) == 1:
-        orgname = args_remove[0]
+def remove_org(args):
+    """Remove organization from gitea"""
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing org.")
 
-        # Get the repository
-        res = requests.get(f"{SERVER}/api/v1/orgs/{orgname}")
+    if not args.organization:
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <organization>")
 
-        # Case repo does not exist
-        if res.status_code == 404:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Organization '{orgname}' not found...")
-
-            # Get all organizations
-            res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
-            data = json.loads(res.content)
-
-            # TODO Duplicate Data....
-            # Check if there was a good response
-            if not data:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
-                sys.exit(1)
-
-            print("Which Organization you want to delete?")
-            # Data acquired, list all found repos in nice table
-            headers = ('id', 'org', 'description')
-            results = [[item['id'], item['username'], item['description']]
-                       for item in data]
-            tbl = columnar(results, headers, no_borders=True, wrap_max=0)
-            print(tbl)
-
-            # Ask for org ID
-            answer = input("Enter org ID: ")
-            if not answer:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
-                sys.exit(1)
-            elif not answer.isdigit():
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-                sys.exit(1)
-
-            # Get the right org by it's ID
-            org_id = int(answer)
-            selected_organization = [ls for ls in results if ls[0] == org_id]
-
-            # User made a mistake and entered number is not one of the listed repo IDs
-            if len(selected_organization) == 0:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-                sys.exit(1)
-
-            # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-            elif len(selected_organization) > 1:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
-                      f"Like really... Len is: {len(selected_organization)}")
-                sys.exit(1)
-
-            print(f"[ INFO ] Selected ID: {org_id}")
-            orgname = selected_organization[0][1]
-
-            remove_org([orgname])
-
-        # Case repo exists, ask if you are really sure to remove it
-        elif res.status_code == 200:
-
-            # Everything OK, delete the repository
-            print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{orgname}'")
-            answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
-            # TODO mam pocit, ze kdyz se smaze organizace, tak se jen repo v nich nekam premisti, zkusit
-            if answer.lower() not in ['y', 'yes']:
-                print(f"[ INFO ] Cancelling... Nothing removed.")
-                sys.exit(0)
-
-            answer = input(f"Enter the organization NAME as confirmation [{orgname}]: ")
-            if not answer == orgname:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{orgname}'. Cancelling...")
-                sys.exit(1)
-
-            print(f"[ INFO ] Deleting organization '{orgname}'")
-            res = requests.delete(f"{SERVER}/api/v1/orgs/{orgname}?access_token={GITEA_TOKEN}")
-
-            # All ok
-            if res.status_code == 204:
-                print("[ INFO ] Done. Organization removed.")
-                return 0
-
-            elif res.status_code == 401:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository.")
-                sys.exit(1)
-
-    elif args_remove == 'empty':
         # Get all organizations
         res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
+
         data = json.loads(res.content)
-
-        # Check if there was a good response
         if not data:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different.")
-            sys.exit(1)
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different."
+            raise Exception(msg)
 
-        print("Which Organization you want to delete?")
-        # Data acquired, list all found repos in nice table
         headers = ('id', 'org', 'description')
         results = [[item['id'], item['username'], item['description']]
                    for item in data]
         tbl = columnar(results, headers, no_borders=True, wrap_max=0)
-        print(tbl)
+        # print(tbl)
+        tbl_as_string = str(tbl).split('\n')
 
-        # Ask for org ID
-        answer = input("Enter org ID: ")
-        if not answer:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
-            sys.exit(1)
-        elif not answer.isdigit():
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-            sys.exit(1)
+        # Ask for repo to remove
+        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
+        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+        choices.append(Separator('\n'))
 
-        # Get the right org by it's ID
-        org_id = int(answer)
-        selected_organization = [ls for ls in results if ls[0] == org_id]
+        qstyle = style_from_dict({
+            Token.Separator: '#cc5454',
+            Token.QuestionMark: '#673ab7 bold',
+            Token.Selected: '#cc5454 bold',
+            Token.Pointer: '#673ab7 bold',
+            Token.Instruction: '',
+            Token.Answer: '#f44336 bold',
+            Token.Question: 'bold',
+        })
 
-        # User made a mistake and entered number is not one of the listed repo IDs
-        if len(selected_organization) == 0:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-            sys.exit(1)
+        questions = [{
+            'type': 'list',
+            'choices': choices,
+            'pageSize': 50,
+            'name': 'org_id',
+            'message': "Select org to remove: ",
+        }]
 
-        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(selected_organization) > 1:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_organization) > 1... That's weird... "
-                  f"Like really... Len is: {len(selected_organization)}")
-            sys.exit(1)
+        answers = prompt(questions, style=qstyle)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
-        print(f"[ INFO ] Selected ID: {org_id}")
-        orgname = selected_organization[0][1]
+        if not answers.get('org_id'):
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
+            raise Exception(msg)
 
-        remove_org([orgname])
+        org_id = int(answers.get('org_id'))
+        selected_org = [ls for ls in results if ls[0] == org_id]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] selected_org: {selected_org[0]}")
 
+        args.organization = selected_org[0][1]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.organization: {args.organization}")
+
+    # Get the org
+    url = f"{SERVER}/api/v1/orgs/{args.organization}?access_token={GITEA_TOKEN}"
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
+
+    res = requests.get(url)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res.status_code: {res.status_code}")
+
+    data = json.loads(res.content)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data: {data}")
+
+    # Case org does not exist
+    if res.status_code == 404:
+        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Organization '{args.organization}' not found...")
+        args.organization = None
+        remove_org(args)
+
+    elif res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for organization: '{args.organization}'"
+        raise Exception(msg)
+
+    # Everything OK, delete the repository
+    print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{args.organization}'")
+    answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
+
+    # TODO mam pocit, ze kdyz se smaze organizace, tak se jen repo v nich nekam premisti, zkusit
+    if answer.lower() not in ['y', 'yes']:
+        print(f"[ INFO ] Cancelling... Nothing removed.")
+        return 0
+
+    answer = input(f"Enter the organization NAME as confirmation [{args.organization}]: ")
+    if not answer == args.organization:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{args.organization}'. Cancelling..."
+        raise Exception(msg)
+
+    print(f"[ INFO ] Deleting organization '{args.organization}'")
+    res = requests.delete(f"{SERVER}/api/v1/orgs/{args.organization}?access_token={GITEA_TOKEN}")
+
+    if res.status_code == 401:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository."
+        raise Exception(msg)
+
+    if res.status_code != 204:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for organization: '{args.organization}'"
+        raise Exception(msg)
+
+    # All ok
+    print(f"[ {BGre}OK{RCol} ] Done. Organization removed.")
     return 0
 
 
@@ -1162,16 +1119,8 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
 
-    if args.create_org:
-        create_org(args.create_org)
-        sys.exit()
-
-    elif args.clone:
+    if args.clone:
         clone_repo(args.clone)
-        sys.exit()
-
-    elif args.remove_org:
-        remove_org(list(args.remove_org))
         sys.exit()
 
     elif args.edit:
