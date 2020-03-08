@@ -32,6 +32,7 @@ from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial
 from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator  # https://pypi.org/project/PyInquirer/
+from PyInquirer import Validator, ValidationError
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 # Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
 # Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
@@ -487,7 +488,21 @@ def create_org(args):
     args.organization = ask_with_defaults('Organization name', defaults=args.organization)
     args.description = ask_with_defaults('Description', defaults=args.description)
     args.fullname = ask_with_defaults('Full Name', defaults=args.fullname)
-    args.visibility = ask_with_defaults('Visibility (public|private)', defaults=args.visibility)
+    # args.visibility = ask_with_defaults('Visibility (public|private)', defaults=args.visibility)
+
+    questions = [
+        {
+            'message': "Visibility (public|private):",
+            'default': args.visibility,
+            'name': 'visibility',
+            'type': 'input',
+            'validate': lambda answer: "Wrong choice. Choose from 'public' or 'private'."
+                if answer not in ['public', 'private'] else True
+        }
+    ]
+
+    answers = prompt(questions)
+    args.visibility = answers.get('visibility')
 
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.organization}")
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
@@ -546,7 +561,7 @@ def create_repo(args):
 
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.reponame}")
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
-    # log.debug(f"args.description: {args.description}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
     # Try to create the repo
     repo_headers = {
@@ -569,6 +584,7 @@ def create_repo(args):
     # User specified different user/org. Only users with admin right can create repos anywhere
     url = f"{SERVER}/api/v1/user/repos"
     if args.username != getpass.getuser():
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
@@ -658,7 +674,14 @@ def list_repo(args):
     url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-    res = requests.get(url)
+    repo_headers = {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}',
+    }
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
+
+    res = requests.get(url, headers=repo_headers)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     data = json.loads(res.content)
@@ -782,7 +805,17 @@ def remove_repo(args):
     if not args.username:
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
-        res = requests.get(f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc")
+        repo_headers = {
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}',
+        }
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
+
+        url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
+
+        res = requests.get(url, headers=repo_headers)
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
@@ -846,13 +879,13 @@ def remove_repo(args):
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
     # Does the username exist?
-    res = requests.get(f"{SERVER}/api/v1/users/{args.username}")
+    res = requests.get(f"{SERVER}/api/v1/users/{args.username}", headers=repo_headers)
     if res.status_code != 200:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
         raise Exception(msg)
 
     # Does the <repository> of <user> exist?
-    res = requests.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    res = requests.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", headers=repo_headers)
     if res.status_code != 200:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
         raise Exception(msg)
@@ -871,7 +904,8 @@ def remove_repo(args):
 
     print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
 
-    res = requests.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}?access_token={GITEA_TOKEN}")
+    res = requests.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", headers=repo_headers)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     # Case when something is wrong with GITEA_TOKEN...
     if res.status_code == 401:
@@ -892,11 +926,19 @@ def remove_org(args):
     """Remove organization from gitea"""
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing org.")
 
+    session = requests.Session()
+
+    session.headers.update({
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}',
+    })
+
     if not args.organization:
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <organization>")
 
         # Get all organizations
-        res = requests.get(f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}")
+        res = session.get(f"{SERVER}/api/v1/admin/orgs")
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
@@ -904,8 +946,8 @@ def remove_org(args):
             msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different."
             raise Exception(msg)
 
-        headers = ('id', 'org', 'description')
-        results = [[item['id'], item['username'], item['description']]
+        headers = ('id', 'org', 'num repos', 'description')
+        results = [[item['id'], item['username'], len(session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()), item['description']]
                    for item in data]
         tbl = columnar(results, headers, no_borders=True, wrap_max=0)
         # print(tbl)
@@ -949,14 +991,13 @@ def remove_org(args):
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.organization: {args.organization}")
 
     # Get the org
-    url = f"{SERVER}/api/v1/orgs/{args.organization}?access_token={GITEA_TOKEN}"
+    url = f"{SERVER}/api/v1/orgs/{args.organization}"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-    res = requests.get(url)
+    res = session.get(url)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res.status_code: {res.status_code}")
 
     data = json.loads(res.content)
-    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data: {data}")
 
     # Case org does not exist
     if res.status_code == 404:
@@ -983,14 +1024,23 @@ def remove_org(args):
         raise Exception(msg)
 
     print(f"[ INFO ] Deleting organization '{args.organization}'")
-    res = requests.delete(f"{SERVER}/api/v1/orgs/{args.organization}?access_token={GITEA_TOKEN}")
+
+    url = f"{SERVER}/api/v1/orgs/{args.organization}"
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
+
+    res = session.delete(url)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     if res.status_code == 401:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository."
         raise Exception(msg)
 
+    elif res.status_code == 500:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] This organization still owns one or more repositories; delete or transfer them first."
+        raise Exception(msg)
+
     if res.status_code != 204:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for organization: '{args.organization}'"
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for org: '{args.organization}'. Status code: {res.status_code}"
         raise Exception(msg)
 
     # All ok
@@ -1022,10 +1072,10 @@ def edit_desc(args_clone):
                         'accept': 'application/json',
                         'Content-Type': 'application/json'}
 
-        repo_data = {
-            'description': description}
+        repo_data = {'description': description}
 
-        res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}",
+        # res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}",
+        res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}",
                              headers=repo_headers,
                              json=repo_data)
         if res.status_code != 200:
