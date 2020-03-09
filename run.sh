@@ -15,12 +15,21 @@ done
 # Real script directory found
 SCRIPTDIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
 
-# LOAD VARIABLES FROM REPO.CONFIG
-source "${SCRIPTDIR}/repo.config" 2>/dev/null
-ENV_NAME="${name}"
-PRG_NAME="${main_file}"
-CUSTOM_LD_LIBRARY="${ld_lib}"
+# Load variables from repo.config
+VENV_NAME=$(grep venv_name ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
+MAIN_FILE=$(grep main_file ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
+if [[ $VENV_NAME == "" || $MAIN_FILE == "" ]]; then
+    echo "[ ERROR ] Can't load either venv_name: '$VENV_NAME' or main_file: '$MAIN_FILE' from '${SCRIPTDIR}/repo.config'..."
+    exit 1
+fi
+
+# Add custom LD_LIBRARY_PATH if set in repo.config
+CUSTOM_LD_LIBRARY=$(grep ld_lib ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
+if [[ CUSTOM_LD_LIBRARY != "" ]]; then
+    # echo "[ DEBUG ] Adding '${CUSTOM_LD_LIBRARY}' to \$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH=${CUSTOM_LD_LIBRARY}:$LD_LIBRARY_PATH
+fi
 
 ## ACTIVATE VIRTUAL ENVIRONMENT AND RUN APP
-source "$SCRIPTDIR"/${ENV_NAME}/bin/activate
-python "$SCRIPTDIR"/${PRG_NAME} "$@"
+source "$SCRIPTDIR"/${VENV_NAME}/bin/activate
+python "$SCRIPTDIR"/${MAIN_FILE} "$@"
