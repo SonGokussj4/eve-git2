@@ -314,19 +314,25 @@ def deploy(args):
     lineno(f"ignore_venv: '{ignore_venv}'")
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
-        cmd = f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}'
+        if os.name != 'nt':
+            cmd = f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}'
+        else:
+            cmd = f'xcopy /Y {tmp_dir} {target_dir.parent}'
     # Case venv wasn't created locally, ignore venv folders so that they will not be deleted in target_dir
     else:
-        cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
-               f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
-    lineno(f"Rsync cmd: '{cmd}'")
+        if os.name != 'nt':
+            cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+                   f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+        else:
+            cmd = f'xcopy /S /I /E /Y {tmp_dir} {target_dir.parent} /EXCLUDE:rsync-directory-exclusions.txt'
+    lineno(f"Copy cmd: '{cmd}'")
     os.system(cmd)
 
     # ===============================
     # =           CLEANUP           =
     # ===============================
-    remove_dir_tree(tmp_dir)
-    lineno(f"'{tmp_dir}' removed")
+    # remove_dir_tree(tmp_dir)
+    # lineno(f"'{tmp_dir}' removed")
 
     print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
     return 0
@@ -370,8 +376,8 @@ def create_org(args):
     ]
 
     answers = prompt(questions, style=QSTYLE)
-    if len(answers) == 0:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] No answers... Exitting."
+    if not answers:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User canceled."
         raise Exception(msg)
 
     args.organization = answers.get('organization')
@@ -423,9 +429,6 @@ def create_org(args):
 @traced
 @logged
 def create_repo(args):
-    # args.reponame = ask_with_defaults('Repository name', defaults=args.reponame)
-    # args.description = ask_with_defaults('Description', defaults=args.description)
-
     questions = [
         {
             'message': "Repository name:",
@@ -634,10 +637,10 @@ def clone_repo(args):
             raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
-        headers = ('id', 'repository', 'user', 'description')
+        tbl_headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
         # print(tbl)
         tbl_as_string = str(tbl).split('\n')
 
@@ -686,8 +689,8 @@ def clone_repo(args):
         url=f"{SERVER}/{args.username}/{args.repository}",
         to_path=CURDIR / args.repository,
         progress=Progress())
-
     print(f"[ {BBla}DEBUG{RCol} ] repo: {repo}")
+
     print(f"[ {BWhi}INFO{RCol} ] DONE")
 
 
@@ -719,10 +722,10 @@ def remove_repo(args):
             raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
-        headers = ('id', 'repository', 'user', 'description')
+        tbl_headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
         # print(tbl)
         tbl_as_string = str(tbl).split('\n')
 
@@ -806,7 +809,7 @@ def remove_org(args):
             msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different."
             raise Exception(msg)
 
-        headers = ['id', 'org', 'num repos', 'description']
+        tbl_headers = ['id', 'org', 'num repos', 'description']
         results = [
             [
                 item['id'],
@@ -816,7 +819,7 @@ def remove_org(args):
             ]
             for item in data
         ]
-        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
         # print(tbl)
         tbl_as_string = str(tbl).split('\n')
 
@@ -959,13 +962,9 @@ def edit_desc(args):
         selected_repository = [ls for ls in results if ls[0] == repo_id]
         lineno(f"selected_repository: {selected_repository[0]}")
 
-        args.repository = selected_repository[0][1]
+        _, args.repository, args.username, args.description = selected_repository[0]
         lineno(f"args.repository: {args.repository}")
-
-        args.username = selected_repository[0][2]
         lineno(f"args.username: {args.username}")
-
-        args.description = selected_repository[0][3]
         lineno(f"args.description: {args.description}")
 
     check_user_repo_exist(SERVER, args)
