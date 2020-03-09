@@ -384,14 +384,6 @@ def create_org(args):
     lineno(f"args.fullname: {args.fullname}")
     lineno(f"args.visibility: {args.visibility}")
 
-    # Construct Headers and Data
-    repo_headers = {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'Authorization': f'token {GITEA_TOKEN}'
-    }
-    lineno(f"repo_headers: {repo_headers}")
-
     repo_data = {
         "description": args.description,
         "full_name": args.fullname,
@@ -402,7 +394,7 @@ def create_org(args):
     lineno(f"repo_data: {repo_data}")
 
     # Create organization
-    res = requests.post(url=f"{SERVER}/api/v1/orgs", headers=repo_headers, json=repo_data)
+    res = args.session.post(url=f"{SERVER}/api/v1/orgs", json=repo_data)
     lineno(f"res: {res}")
 
     # Viable responses
@@ -471,14 +463,6 @@ def create_repo(args):
     lineno(f"args.description: {args.description}")
     lineno(f"args.username: {args.username}")
 
-    # Try to create the repo
-    repo_headers = {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'Authorization': f'token {GITEA_TOKEN}'
-    }
-    lineno(f"repo_headers: {repo_headers}")
-
     repo_data = {
         'auto_init': True,
         'name': args.reponame,
@@ -497,7 +481,7 @@ def create_repo(args):
     lineno(f"url: {url}")
 
     # Post the repo
-    res = requests.post(url=url, headers=repo_headers, json=repo_data)
+    res = args.session.post(url=url, json=repo_data)
     lineno(f"res: {res}")
 
     # Viable responses
