@@ -286,10 +286,14 @@ def deploy(args):
         # =           REPLACE MAIN_FILE IN run.sh           =
         # ===================================================
         runsh_file = tmp_dir / 'run.sh'
-        print(f"[ {BWhi}INFO{RCol}  ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{repo_cfg['Repo']['main_file']}' within '{runsh_file}'")
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] runsh_file: '{runsh_file}'")
+        main_file = repo_cfg['venv']['main_file']
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] main_file: '{main_file}'")
+
+        print(f"[ {BWhi}INFO{RCol}  ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{main_file}' within '{runsh_file}'")
         with fileinput.FileInput(runsh_file, inplace=True) as f:
             for line in f:
-                print(line.replace('MAIN_FILE_PLACEHOLDER', repo_cfg['Repo']['main_file']), end='')
+                print(line.replace('MAIN_FILE_PLACEHOLDER', main_file), end='')
 
         # =====================================================
         # =           CREATE REMOTE reponame FOLDER           =
