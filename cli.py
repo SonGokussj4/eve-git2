@@ -81,6 +81,13 @@ Description:
     # =           SUBPARSERS           =
     # ==================================
 
+    # CLONE
+    parser_clone = subparsers.add_parser('clone', help='Clone one thing!!!', parents=[common])
+    parser_clone.add_argument('repository', help='Help for <repository>')
+    parser_clone.add_argument('username', nargs='?', help='Help for <username>')
+    parser_clone.formatter_class = CustomHelpFormatter
+    parser_clone.set_defaults(func=eve_git.clone_repo)
+
     # LIST
     parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
     parser_list.add_argument('repository', nargs='?', default='', help='Help for <repository>')
@@ -122,6 +129,13 @@ Description:
     parser_remove_org.formatter_class = CustomHelpFormatter
     parser_remove_org.set_defaults(func=eve_git.remove_org)
 
+    # EDIT
+    parser_edit = subparsers.add_parser('edit', help='Edit all the things!!!', parents=[common])
+    parser_edit.add_argument('repository', help='Help for <repository>')
+    parser_edit.add_argument('username', nargs='?', help='Help for <username>')
+    parser_edit.formatter_class = CustomHelpFormatter
+    parser_edit.set_defaults(func=eve_git.edit_desc)
+
     # DEPLOY
     parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
@@ -130,20 +144,10 @@ Description:
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
-
-    parser_edit = subparsers.add_parser('edit', help='Edit all the things!!!', parents=[common])
-    parser_edit.add_argument('repository', help='Help for <repository>')
-    parser_edit.add_argument('username', nargs='?', help='Help for <username>')
-    parser_edit.formatter_class = CustomHelpFormatter
-    parser_edit.set_defaults(func=eve_git.edit_desc)
-
     group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
     #                    help='Show one-line description of <project_name>')
-
-    # group.add_argument('--description', dest='description', action='store_true',
-    #                    help='Edit description file of <project_name>')
 
     group.add_argument('--clone', dest='clone', nargs='+', type=str,
                        action=required_length(1, 2),

@@ -90,7 +90,7 @@ DEBUG = cfg['app'].getboolean('debug')
 QSTYLE = style_from_dict({
     Token.Separator: '#686868 bold',
     Token.QuestionMark: '#686868 bold',
-    Token.Selected: '#cc5454 bold',
+    Token.Selected: '#cc5454',
     Token.Pointer: '#54FF54 bold',
     # Token.Instruction: '#E8CB26',
     # Token.Answer: '#F3F3F3 bold',
@@ -102,12 +102,12 @@ QSTYLE = style_from_dict({
 # ====================================================
 # =           Exceptions without Traceback           =
 # ====================================================
-# def excepthook(type, value, traceback):
-#     print(value)
+def excepthook(type, value, traceback):
+    print(value)
 
 
-# if not DEBUG:
-#     sys.excepthook = excepthook
+if not DEBUG:
+    sys.excepthook = excepthook
 
 
 # ===============================
@@ -640,84 +640,89 @@ def list_repo(args):
     return 0
 
 
-def clone_repo(args_clone):
+@traced
+@logged
+def clone_repo(args):
     """Clone repo into current directory."""
-    target_dir = CURDIR.resolve()
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Cloning repo.")
 
-    # User specified both arguments: --clone <reponame> <username>
-    if len(args_clone) == 2:
-        reponame, username = args_clone
+    if not args.username:
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
-        # Does the username exist?
-        res = requests.get(f"{SERVER}/api/v1/users/{username}")
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
-            sys.exit(1)
+        url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-        # Does the <repository> of <user> exist?
-        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            sys.exit(1)
-
-        # Everything OK, clone the repository
-        repo = Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
-                                   to_path=Path(target_dir / reponame).resolve(),
-                                   progress=Progress())
-        print("[ INFO ] DONE")
-        return repo
-
-    # User didn't specify <username>: --clone <reponame>
-    elif len(args_clone) == 1:
-        reponame = args_clone[0]
-        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
+        res = args.session.get(url)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
-            sys.exit(1)
-        elif not data.get('data'):
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
-            sys.exit(1)
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+            raise Exception(msg)
+
+        if not data.get('data'):
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+            raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
         headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True)
-        print(tbl)
+        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        # print(tbl)
+        tbl_as_string = str(tbl).split('\n')
 
-        # Ask for repo ID
-        answer = input("Enter repo ID: ")
-        if not answer:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
-            sys.exit(1)
-        elif not answer.isdigit():
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-            sys.exit(1)
+        # Ask for repo to clone
+        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
+        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+        choices.append(Separator('\n'))
 
-        # Get the right repo by it's ID
-        repo_id = int(answer)
+        questions = [{
+            'type': 'list',
+            'choices': choices,
+            'pageSize': 50,
+            'name': 'repo_id',
+            'message': "Select repo to clone: ",
+        }]
+
+        answers = prompt(questions, style=QSTYLE)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
+        if not answers:
+            msg = f"{lineno(): >4}.[ {BWhi}INFO{RCol} ] User Canceled"
+            raise Exception(msg)
+
+        repo_id = int(answers.get('repo_id'))
         selected_repository = [ls for ls in results if ls[0] == repo_id]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] selected_repository: {selected_repository[0]}")
 
-        # User made a mistake and entered number is not one of the listed repo IDs
-        if len(selected_repository) == 0:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-            sys.exit(1)
+        args.repository = selected_repository[0][1]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
 
-        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(selected_repository) > 1:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
-                  f"Like really... Len is: {len(selected_repository)}")
-            sys.exit(1)
+        args.username = selected_repository[0][2]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
-        print(f"[ INFO ] Clonning ID: {repo_id}")
-        reponame, username = selected_repository[0][1], selected_repository[0][2]
-        clone_repo([reponame, username])
-        return 0
+    # Check if 'user' and combination of 'user/repo' exist
+    check_user_repo_exist(SERVER, args)
+
+    # Everything OK, clone the repository
+    print(f"[ {BWhi}INFO{RCol} ] Cloning '{SERVER}/{args.username}/{args.repository}'")
+
+    target_dir = CURDIR / args.repository
+    if target_dir.exists():
+        msg = (f"[ {BRed}ERROR{RCol} ] Folder with the same name '{args.repository}' "
+               f"already in target dir: '{target_dir.resolve()}'")
+        raise Exception(msg)
+
+    repo = Repo.clone_from(
+        url=f"{SERVER}/{args.username}/{args.repository}",
+        to_path=CURDIR / args.repository,
+        progress=Progress())
+
+    print(f"[ {BBla}DEBUG{RCol} ] repo: {repo}")
+    print(f"[ {BWhi}INFO{RCol} ] DONE")
 
 
 @traced
@@ -1091,15 +1096,9 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit()
 
-
     # React on user inputted command/arguments
     args.func(args)
     # try:
     #     args.func(args)
     # except Exception as e:
     #     raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
-
-
-    if args.clone:
-        clone_repo(args.clone)
-        sys.exit()

@@ -16,6 +16,7 @@ from autologging import logged, traced
 RCol = Style.RESET_ALL
 Whi, BWhi = Fore.WHITE, f'{Fore.WHITE}{Style.BRIGHT}'
 Bla, BBla = Fore.BLACK, f'{Fore.BLACK}{Style.BRIGHT}'
+Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
 
 
 # =================================
@@ -85,6 +86,22 @@ def requirements_similar(src_requirements, dst_requirements):
 
     return filecmp.cmp(src_requirements, dst_requirements)
 
+
+def check_user_repo_exist(SERVER: str, args):
+    """Return True if both 'user' and combination 'user/repo' exists."""
+    # Does the username exist?
+    res = args.session.get(f"{SERVER}/api/v1/users/{args.username}")
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
+        raise Exception(msg)
+
+    # Does the <repository> of <user> exist?
+    res = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
+        raise Exception(msg)
+
+    return True
 
 # def make_symbolic_link(src_filepath, dst_filepath):
 #     if type(src_filepath) == 'str':
