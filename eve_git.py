@@ -196,6 +196,7 @@ def deploy(args):
     # ========================================
     lineno(f"Checking 'repo.config'")
     repo_cfg_filepath = tmp_dir / 'repo.config'
+    ignore_venv = True
 
     if repo_cfg_filepath.exists():
         lineno(f"'{repo_cfg_filepath}' found. Loading config.")
