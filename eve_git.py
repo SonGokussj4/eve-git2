@@ -26,13 +26,13 @@ from pathlib import Path
 # Pip Libs
 #==========
 # from profilehooks import profile, timecall, coverage
-import click  # https://pypi.org/project/click/
+# import click  # https://pypi.org/project/click/
 import requests
 from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
 from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator  # https://pypi.org/project/PyInquirer/
-from PyInquirer import Validator, ValidationError
+# from PyInquirer import Validator, ValidationError
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 # Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
 # Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
@@ -87,6 +87,26 @@ SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
 SKRIPTY_SERVER = cfg['server']['skripty_server']
 LD_LIB_PATH = cfg['server']['ld_lib']
 DEBUG = cfg['app'].getboolean('debug')
+# Style for PyInquirer
+QSTYLE = style_from_dict({
+    Token.Separator: '#686868 bold',
+    Token.QuestionMark: '#686868 bold',
+    Token.Selected: '#cc5454 bold',
+    Token.Pointer: '#54FF54 bold',
+    Token.Instruction: '#E8CB26',
+    # Token.Answer: '#F3F3F3 bold',
+    Token.Answer: '#ffffff italic',
+    # Token.Question: '#8C8C8C',
+})
+QSTYLE_BOLD = style_from_dict({
+    Token.Separator: '#cc5454',
+    Token.QuestionMark: '#673ab7 bold',
+    Token.Selected: '#cc5454 bold',
+    Token.Pointer: '#673ab7 bold',
+    Token.Instruction: '',
+    Token.Answer: '#ffffff italic',
+    Token.Question: 'bold',
+})
 
 
 # ====================================================
@@ -485,23 +505,47 @@ def deploy(args):
 @logged
 def create_org(args):
     """Function Description."""
-    args.organization = ask_with_defaults('Organization name', defaults=args.organization)
-    args.description = ask_with_defaults('Description', defaults=args.description)
-    args.fullname = ask_with_defaults('Full Name', defaults=args.fullname)
-    # args.visibility = ask_with_defaults('Visibility (public|private)', defaults=args.visibility)
-
     questions = [
+        {
+            'message': f"Organization name:",
+            'default': args.organization,
+            'name': 'organization',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Description:",
+            'default': args.description,
+            'name': 'description',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Full Name:",
+            'default': args.fullname,
+            'name': 'fullname',
+            'type': 'input',
+        },
         {
             'message': "Visibility (public|private):",
             'default': args.visibility,
             'name': 'visibility',
             'type': 'input',
             'validate': lambda answer: "Wrong choice. Choose from 'public' or 'private'."
-                if answer not in ['public', 'private'] else True
-        }
+            if answer not in ['public', 'private'] else True
+        },
     ]
 
-    answers = prompt(questions)
+    answers = prompt(questions, style=QSTYLE)
+    if len(answers) == 0:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] No answers... Exitting."
+        raise Exception(msg)
+
+    args.organization = answers.get('organization')
+    args.description = answers.get('description')
+    args.fullname = answers.get('fullname')
     args.visibility = answers.get('visibility')
 
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.organization}")
@@ -556,8 +600,41 @@ def create_org(args):
 @traced
 @logged
 def create_repo(args):
-    args.reponame = ask_with_defaults('Repository name', defaults=args.reponame)
-    args.description = ask_with_defaults('Description', defaults=args.description)
+    # args.reponame = ask_with_defaults('Repository name', defaults=args.reponame)
+    # args.description = ask_with_defaults('Description', defaults=args.description)
+
+    questions = [
+        {
+            'message': "Repository name:",
+            'default': args.reponame,
+            'name': 'reponame',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Description:",
+            'default': args.description,
+            'name': 'description',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "User/Org:",
+            'default': args.username,
+            'name': 'username',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+    ]
+
+    answers = prompt(questions, style=QSTYLE_BOLD)
+
+    args.reponame = answers.get('reponame')
+    args.description = answers.get('description')
+    args.username = answers.get('username')
 
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.reponame: {args.reponame}")
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
@@ -843,16 +920,6 @@ def remove_repo(args):
         choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
         choices.append(Separator('\n'))
 
-        qstyle = style_from_dict({
-            Token.Separator: '#cc5454',
-            Token.QuestionMark: '#673ab7 bold',
-            Token.Selected: '#cc5454 bold',
-            Token.Pointer: '#673ab7 bold',
-            Token.Instruction: '',
-            Token.Answer: '#f44336 bold',
-            Token.Question: 'bold',
-        })
-
         questions = [{
             'type': 'list',
             'choices': choices,
@@ -861,7 +928,7 @@ def remove_repo(args):
             'message': "Select repo to remove: ",
         }]
 
-        answers = prompt(questions, style=qstyle)
+        answers = prompt(questions, style=QSTYLE)
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
         if not answers.get('repo_id'):
@@ -958,16 +1025,6 @@ def remove_org(args):
         choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
         choices.append(Separator('\n'))
 
-        qstyle = style_from_dict({
-            Token.Separator: '#cc5454',
-            Token.QuestionMark: '#673ab7 bold',
-            Token.Selected: '#cc5454 bold',
-            Token.Pointer: '#673ab7 bold',
-            Token.Instruction: '',
-            Token.Answer: '#f44336 bold',
-            Token.Question: 'bold',
-        })
-
         questions = [{
             'type': 'list',
             'choices': choices,
@@ -976,7 +1033,7 @@ def remove_org(args):
             'message': "Select org to remove: ",
         }]
 
-        answers = prompt(questions, style=qstyle)
+        answers = prompt(questions, style=QSTYLE)
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
 
         if not answers.get('org_id'):
