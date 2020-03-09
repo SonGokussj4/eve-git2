@@ -144,15 +144,10 @@ Description:
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
-    group = parser.add_mutually_exclusive_group()
+    # group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
     #                    help='Show one-line description of <project_name>')
-
-    group.add_argument('--clone', dest='clone', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Clone existing <repository> [user] into current directory')
 
     parser.epilog = "--- Arguments common to all sub-parsers ---" \
         + common.format_help().replace(common.format_usage(), '')
