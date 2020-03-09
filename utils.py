@@ -88,7 +88,12 @@ def requirements_similar(src_requirements, dst_requirements):
 
 
 def check_user_repo_exist(SERVER: str, args):
-    """Return True if both 'user' and combination 'user/repo' exists."""
+    """Return True if both 'user' and combination 'user/repo' exists.
+
+    Check:
+        {SERVER}/api/v1/users/{args.username}
+        {SERVER}/api/v1/repos/{args.username}/{args.repository}
+    """
     # Does the username exist?
     res = args.session.get(f"{SERVER}/api/v1/users/{args.username}")
     if res.status_code != 200:
@@ -110,5 +115,5 @@ def check_user_repo_exist(SERVER: str, args):
 #         dst_filepath = Path(dst_filepath)
 
 #     cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
-#     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+#     lineno(f"cmd: '{cmd}'")
 #     os.system(cmd)
