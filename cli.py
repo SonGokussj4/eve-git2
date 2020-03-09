@@ -1,6 +1,11 @@
 """Command Line Interface (CLI) Class"""
 
 import argparse
+import utils
+import eve_git
+import getpass
+# from eve_git import RCol, BWhi
+
 
 # =================================
 # =           CONSTANTS           =
@@ -55,12 +60,12 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
 def get_parser():
     """Return parser with arguments."""
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument('-v', action='count', help='Verbal')
-    common.add_argument('-V', '--version', action='version')
+    common.add_argument('-v', action='count', default=None, help='Verbal')
+    common.add_argument('-V', '--version', action='version', version=__version__)
 #     # common.add_argument('--details', dest='details', action='store_true',
 #     #                     help="Optional... Show details when listing repos/orgs")
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(parents=[common])
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
     parser.formatter_class = CustomHelpFormatter
 
@@ -70,79 +75,80 @@ Description:
    <Ideally one line description of the program>
 
 """
-    # SUBPARSERS
     # https://pymotw.com/2/argparse/#nesting-parsers
-    parser_create = subparsers.add_parser('create', help='Create all the things!!!', parents=[common])
-    parser_create.add_argument('repository', help='Help for <repository>')
-    parser_create.add_argument('description', help='Help for <description>')
 
+    # ==================================
+    # =           SUBPARSERS           =
+    # ==================================
+
+    # CLONE
+    parser_clone = subparsers.add_parser('clone', help='Clone one thing!!!', parents=[common])
+    parser_clone.add_argument('repository', help='Help for <repository>')
+    parser_clone.add_argument('username', nargs='?', help='Help for <username>')
+    parser_clone.formatter_class = CustomHelpFormatter
+    parser_clone.set_defaults(func=eve_git.clone_repo)
+
+    # LIST
+    parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
+    parser_list.add_argument('repository', nargs='?', default='', help='Help for <repository>')
+    parser_list.add_argument('username', nargs='?', default='', help='Specify user/org')
+    parser_list.formatter_class = CustomHelpFormatter
+    parser_list.set_defaults(func=eve_git.list_repo)
+
+    # LIST_ORG
+    parser_list_org = subparsers.add_parser('list_org', help='List all the Orgs!!!', parents=[common])
+    parser_list_org.set_defaults(func=eve_git.list_org)
+
+    # CREATE
+    parser_create = subparsers.add_parser('create', help='Create one thing!!!', parents=[common])
+    parser_create.add_argument('reponame', nargs='?', default='', help='Help for <repository>')
+    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write project description>', help='Help for <description>')
+    parser_create.add_argument('username', nargs='?', default=getpass.getuser(), help='Help for <username>')
+    parser_create.formatter_class = CustomHelpFormatter
+    parser_create.set_defaults(func=eve_git.create_repo)
+
+    # CREATE_ORG
+    parser_create = subparsers.add_parser('create_org', help='Create one org thing!!!', parents=[common])
+    parser_create.add_argument('organization', nargs='?', default='', help='Help for <organization>')
+    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write organization description>', help='Help for <description>')
+    parser_create.add_argument('fullname', nargs='?', default='', help='Help for <fullname>')
+    parser_create.add_argument('visibility', nargs='?', default='public', help='Help for <visibility>')
+    parser_create.formatter_class = CustomHelpFormatter
+    parser_create.set_defaults(func=eve_git.create_org)
+
+    # REMOVE
+    parser_remove = subparsers.add_parser('remove', help='Remove one thing!!!', parents=[common])
+    parser_remove.add_argument('repository', help='Help for <repository>')
+    parser_remove.add_argument('username', nargs='?', help='Specify user/org')
+    parser_remove.formatter_class = CustomHelpFormatter
+    parser_remove.set_defaults(func=eve_git.remove_repo)
+
+    # REMOVE_ORG
+    parser_remove_org = subparsers.add_parser('remove_org', help='Remove one ORG thing!!!', parents=[common])
+    parser_remove_org.add_argument('organization', nargs='?', help='Help for <organization>')
+    parser_remove_org.formatter_class = CustomHelpFormatter
+    parser_remove_org.set_defaults(func=eve_git.remove_org)
+
+    # EDIT
+    parser_edit = subparsers.add_parser('edit', help='Edit all the things!!!', parents=[common])
+    parser_edit.add_argument('repository', help='Help for <repository>')
+    parser_edit.add_argument('username', nargs='?', help='Help for <username>')
+    parser_edit.formatter_class = CustomHelpFormatter
+    parser_edit.set_defaults(func=eve_git.edit_desc)
+
+    # DEPLOY
     parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', help='Help for <username>')
-    parser_deploy.add_argument('branch', help='Help for <branch>')
+    parser_deploy.add_argument('username', nargs='?', default=getpass.getuser(), help='Help for <username>')
+    parser_deploy.add_argument('branch', nargs='?', default='master', help='Help for <branch>')
+    parser_deploy.formatter_class = CustomHelpFormatter
+    parser_deploy.set_defaults(func=eve_git.deploy)
 
-
-    group = parser.add_mutually_exclusive_group()
-
-    group.add_argument('--list', dest='list_repo', nargs='*', type=str,
-                       action=required_length(0, 2),
-                       metavar=('username'),
-                       help='Show all repositories [of entered <user>]')
-
-    group.add_argument('--list_org', dest='list_org',
-                       action="store_true",
-                       help='Show all organizations')
-
-    group.add_argument('--deploy', dest='deploy', nargs='+', type=str,
-                       action=required_length(1, 3),
-                       metavar=('repository', 'username'),
-                       # choices=['master', 'next'],
-                       help='Deploy project <repository> to production')
-
-    # group.add_argument('--list_org_repo', dest='list_org_repo', metavar='organization',
-    #                    nargs=1, help='Show <organization> repositories.')
+    # group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
     #                    help='Show one-line description of <project_name>')
 
-    # group.add_argument('--description', dest='description', action='store_true',
-    #                    help='Edit description file of <project_name>')
-
-    group.add_argument('--create', dest='create', nargs='*', type=str,
-                       action=required_length(0, 3),
-                       metavar=('repository', 'description'),
-                       help='Create new remote [repository], [description], [user]')
-
-    group.add_argument('--remove', dest='remove', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Remove remote <repository> [user]')
-
-    group.add_argument('--create_org', dest='create_org', nargs='*', type=str,
-                       action=required_length(0, 2),
-                       metavar=('organization', 'description'),
-                       help='Create new [organization], [description]')
-
-    group.add_argument('--remove_org', dest='remove_org', nargs='+', type=str,
-                       action=required_length(1, 1),
-                       metavar=('organization'),
-                       help='Remove remote <organization>')
-
-    group.add_argument('--clone', dest='clone', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Clone existing <repository> [user] into current directory')
-
-    group.add_argument('--edit', dest='edit', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Edit description in existing <repository> [user].')
-
-    # group.add_argument('--deploy', dest='deploy', action='store_true',
-    #                    help='Deploy <project_name> to folder')
-
-    # group.add_argument('--transfer', dest='transfer', action='store_true',
-    #                    help='Transfer <project_name> to organization')
     parser.epilog = "--- Arguments common to all sub-parsers ---" \
         + common.format_help().replace(common.format_usage(), '')
 
