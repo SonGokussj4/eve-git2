@@ -8,30 +8,51 @@
 
 ## Help
 ```Bash
-usage: eve_git.py [-h] [--version] [--create [repository [description ...]] |
-                  --clone repository [user ...] | --remove repository
-                  [user ...]]
+usage: eve_git.py [-h] [-v] [-V] <command> ...
 
 Description:
    <Ideally one line description of the program>
 
 optional arguments:
-  -h, --help                               show this help message and exit
-  --version                                show program's version number and exit
-  --create [repository [description ...]]  Create new remote [repository], [description], [user] (default: None)        --clone repository [user ...]            Clone existing <repository> [user] into current directory (default: None)    --remove repository [user ...]           Remove remote <repository> [user] (default: None)
+  -h, --help     show this help message and exit
+  -v             Verbal (default: None)
+  -V, --version  show program's version number and exit
+
+commands:
+  clone          Clone one thing!!!
+  list           List all the things!!!
+  list_org       List all the Orgs!!!
+  create         Create one thing!!!
+  create_org     Create one org thing!!!
+  remove         Remove one thing!!!
+  remove_org     Remove one ORG thing!!!
+  edit           Edit all the things!!!
+  deploy         Deploy all the things!!!
+
+--- Arguments common to all sub-parsers ---
+optional arguments:
+  -v             Verbal
+  -V, --version  show program's version number and exit
 ```
 
-## Installation
+## Linux Installation & Run
 
-```R
+```Bash
 python3.7eve -m venv .env
 source .env/bin/activate
 pip install update pip
-pip install -r requirements
+pip install -r requirements.txt
 deactivate
+
+./run.sh
 ```
 
-## Running
+## Windows Installation & Run
 ```Bash
-./run.sh
+python3.7.exe -m venv env
+env/Scripts/activate
+pip install update pip
+pip install -r requirements.txt
+
+python.exe eve_git.py
 ```
