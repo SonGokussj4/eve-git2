@@ -561,10 +561,10 @@ def list_org(args):
     """Function for listing organizations."""
     print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] Listing organizations")
 
-    url = f"{SERVER}/api/v1/admin/orgs?access_token={GITEA_TOKEN}"
+    url = f"{SERVER}/api/v1/admin/orgs"
     print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: '{url}'")
 
-    res = requests.get(url)
+    res = args.session.get(url)
     if res.status_code == 403:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
         raise Exception(msg)
@@ -582,8 +582,14 @@ def list_org(args):
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
-    headers = ('Organization', 'description')
-    results = [[item['username'], item['description']] for item in data]
+    headers = ('Organization', 'Num Repos', 'description')
+    results = [
+        [
+            item['username'],
+            len(args.session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()),
+            item['description']
+        ]
+        for item in data]
     tbl = columnar(results, headers, no_borders=True)
     print(tbl)
 
@@ -730,17 +736,10 @@ def remove_repo(args):
     if not args.username:
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
-        repo_headers = {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'Authorization': f'token {GITEA_TOKEN}',
-        }
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
-
         url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-        res = requests.get(url, headers=repo_headers)
+        res = args.session.get(url)
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
@@ -794,13 +793,13 @@ def remove_repo(args):
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
     # Does the username exist?
-    res = requests.get(f"{SERVER}/api/v1/users/{args.username}", headers=repo_headers)
+    res = args.session.get(f"{SERVER}/api/v1/users/{args.username}")
     if res.status_code != 200:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
         raise Exception(msg)
 
     # Does the <repository> of <user> exist?
-    res = requests.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", headers=repo_headers)
+    res = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
     if res.status_code != 200:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
         raise Exception(msg)
@@ -809,17 +808,17 @@ def remove_repo(args):
     print(f"[ {BWhi}INFO{RCol} ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
     answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
     if answer.lower() not in ['y', 'yes']:
-        print(f"[ {BWhi}INFO{RCol} ] Cancelling... Nothing removed.")
+        print(f"[ {BWhi}INFO{RCol} ] Aborting... Nothing removed.")
         return 0
 
     answer = input(f"Enter the repository NAME as confirmation [{args.repository}]: ")
     if not answer == args.repository:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Cancelling..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Aborting..."
         raise Exception(msg)
 
     print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
 
-    res = requests.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", headers=repo_headers)
+    res = args.session.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     # Case when something is wrong with GITEA_TOKEN...
@@ -841,13 +840,11 @@ def remove_org(args):
     """Remove organization from gitea"""
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing org.")
 
-    session = args.session
-
     if not args.organization:
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <organization>")
 
         # Get all organizations
-        res = session.get(f"{SERVER}/api/v1/admin/orgs")
+        res = args.session.get(f"{SERVER}/api/v1/admin/orgs")
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
@@ -855,9 +852,16 @@ def remove_org(args):
             msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different."
             raise Exception(msg)
 
-        headers = ('id', 'org', 'num repos', 'description')
-        results = [[item['id'], item['username'], len(session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()), item['description']]
-                   for item in data]
+        headers = ['id', 'org', 'num repos', 'description']
+        results = [
+            [
+                item['id'],
+                item['username'],
+                len(args.session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()),
+                item['description']
+            ]
+            for item in data
+        ]
         tbl = columnar(results, headers, no_borders=True, wrap_max=0)
         # print(tbl)
         tbl_as_string = str(tbl).split('\n')
@@ -893,7 +897,7 @@ def remove_org(args):
     url = f"{SERVER}/api/v1/orgs/{args.organization}"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-    res = session.get(url)
+    res = args.session.get(url)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res.status_code: {res.status_code}")
 
     data = json.loads(res.content)
@@ -913,12 +917,12 @@ def remove_org(args):
     answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
 
     if answer.lower() not in ['y', 'yes']:
-        print(f"[ INFO ] Cancelling... Nothing removed.")
+        print(f"[ INFO ] Aborting... Nothing removed.")
         return 0
 
     answer = input(f"Enter the organization NAME as confirmation [{args.organization}]: ")
     if not answer == args.organization:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{args.organization}'. Cancelling..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{args.organization}'. Aborting..."
         raise Exception(msg)
 
     print(f"[ INFO ] Deleting organization '{args.organization}'")
@@ -926,7 +930,7 @@ def remove_org(args):
     url = f"{SERVER}/api/v1/orgs/{args.organization}"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-    res = session.delete(url)
+    res = args.session.delete(url)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     if res.status_code == 401:
