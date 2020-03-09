@@ -970,6 +970,9 @@ def edit_desc(args):
 
     check_user_repo_exist(SERVER, args)
 
+    repo = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    args.description = repo.json().get('description')
+
     # Everything OK, edit the repository
     print(f"[ {BWhi}INFO{RCol} ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
 
