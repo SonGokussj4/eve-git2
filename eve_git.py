@@ -14,7 +14,6 @@ import sys
 import json
 # import shlex
 import shutil
-import filecmp
 import getpass
 import logging
 import fileinput
@@ -93,31 +92,22 @@ QSTYLE = style_from_dict({
     Token.QuestionMark: '#686868 bold',
     Token.Selected: '#cc5454 bold',
     Token.Pointer: '#54FF54 bold',
-    Token.Instruction: '#E8CB26',
+    # Token.Instruction: '#E8CB26',
     # Token.Answer: '#F3F3F3 bold',
-    Token.Answer: '#ffffff italic',
+    Token.Answer: '#ffffff',
     # Token.Question: '#8C8C8C',
-})
-QSTYLE_BOLD = style_from_dict({
-    Token.Separator: '#cc5454',
-    Token.QuestionMark: '#673ab7 bold',
-    Token.Selected: '#cc5454 bold',
-    Token.Pointer: '#673ab7 bold',
-    Token.Instruction: '',
-    Token.Answer: '#ffffff italic',
-    Token.Question: 'bold',
 })
 
 
 # ====================================================
 # =           Exceptions without Traceback           =
 # ====================================================
-def excepthook(type, value, traceback):
-    print(value)
+# def excepthook(type, value, traceback):
+#     print(value)
 
 
-if not DEBUG:
-    sys.excepthook = excepthook
+# if not DEBUG:
+#     sys.excepthook = excepthook
 
 
 # ===============================
@@ -129,6 +119,8 @@ from progress import Progress
 # =================================
 # =           FUNCTIONS           =
 # =================================
+
+
 def init_logging(args):
     log_level = logging.WARNING
     if args.v:
@@ -145,302 +137,284 @@ def init_logging(args):
         format="[ %(levelname)s ] %(funcName)s: %(message)s")
 
 
-def lineno(msg=None):
-    if not msg:
-        return sys._getframe().f_back.f_lineno
-    print(f"{lineno(): >4}.[ {BBla}Debug{RCol} ] {sys._getframe().f_back.f_lineno}: {msg if msg is not None else ''}")
+def init_session(args):
+    session = requests.Session()
+
+    session.headers.update({
+        'accept': 'application/json',
+        'content-type': 'application/json',
+        'Authorization': f'token {GITEA_TOKEN}',
+    })
+    return session
+
+
 
 
 @traced
 @logged
 def deploy(args):
-    print(f"[ {BWhi}INFO{RCol}  ] Deploying... args: '{args}'")
-    # User specified both arguments: --clone <reponame> <username>
-    if len(args) >= 2:
-        branch = 'master'
-        if len(args) == 3:
-            reponame, username, branch = args
-        else:
-            reponame, username = args
+    print(f"[ {BWhi}INFO{RCol}  ] Deploying...")
+
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.branch: {args.branch}")
+
+    # ==================================================
+    # =           CHECK IF <username> EXISTS           =
+    # ==================================================
+    # Does the username exist?
+    res = args.session.get(f"{SERVER}/api/v1/users/{args.username}")
+    if res.status_code != 200:
+        raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!")
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
+    # lineno(f"Checking if <username> exists: {res.ok}")
+
+    # ================================================================
+    # =           CHECK FOR <repository> AND <user> EXISTS           =
+    # ================================================================
+    # Does the <repository> of <user> exist?
+    res = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
+        raise Exception(msg)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username>/<repository> exists: {res.ok}")
+
+    # Local and Remove directory
+    tmp_dir = Path('/tmp') / args.repository
+    target_dir = SKRIPTY_DIR / args.repository
+
+    # ================================================================
+    # =           REMOVE EXISTING /tmp/{repository} FOLDER           =
+    # ================================================================
+    if tmp_dir.exists():
+        print(f"[ {Yel}WARNING{RCol} ] '{tmp_dir}' already exists. Removing.")
+        removed = remove_dir_tree(tmp_dir)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] removed: {removed}")
+
+    # ================================================
+    # =           CLONE GIT REPO INTO /tmp           =
+    # ================================================
+    print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
+
+    url = f"{SERVER}/{args.username}/{args.repository}"
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Clonning url: {url}")
+
+    Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
+
+    # ==========================================
+    # =           REMOVE .GIT FOLDER           =
+    # ==========================================
+    print(f"[ {BWhi}INFO{RCol} ] Removing '.git' folder")
+    git_folder = tmp_dir / '.git'
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing '{git_folder}'")
+    res = remove_dir_tree(git_folder)
+
+    # ========================================
+    # =           LOAD REPO.CONFIG           =
+    # ========================================
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking 'repo.config'")
+    repo_cfg_filepath = tmp_dir / 'repo.config'
+
+    if repo_cfg_filepath.exists():
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{repo_cfg_filepath}' found. Loading config.")
+        repo_cfg = configparser.ConfigParser(allow_no_value=True)
+        repo_cfg.read(repo_cfg_filepath)
+
+        # =============================================
+        # =           MAKE FILES EXECUTABLE           =
+        # =============================================
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Changing permissions for all files in '{tmp_dir}' to 664")
+        for item in tmp_dir.iterdir():
+            item: Path
+            if not item.is_file():
+                continue
+            os.chmod(item, 0o664)
+
+        for key, val in repo_cfg.items('Executable'):
+            exe_file = tmp_dir / key
+            if not exe_file.exists():
+                print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repo.config'.")
+                continue
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
+            os.chmod(exe_file, 0o774)
+
+        # ================================================================================
+        # =           CHECK IF REQUIREMENTS.TXT / REPO.CONFIG ARE DIFFERENT           =
+        # ================================================================================
+        src_requirements = tmp_dir / 'requirements.txt'
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] src_requirements: {src_requirements}")
+        dst_requirements = target_dir / 'requirements.txt'
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] dst_requirements: {dst_requirements}")
+        ignore_venv = requirements_similar(src_requirements, dst_requirements)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] ignore_venv: {ignore_venv}")
 
         # ==================================================
-        # =           CHECK IF <username> EXISTS           =
+        # =           CREATE VIRTUAL ENVIRONMENT           =
         # ==================================================
-        # Does the username exist?
-        res = requests.get(f"{SERVER}/api/v1/users/{username}")
-        if res.status_code != 200:
-            raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username> exists: {res.ok}")
-
-        # ================================================================
-        # =           CHECK FOR <repository> AND <user> EXISTS           =
-        # ================================================================
-        # Does the <repository> of <user> exist?
-        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            # sys.exit(1)
-            raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking if <username>/<reponame> exists: {res.ok}")
-
-        # Everything OK, clone the repository to /tmp/<reponame>
-        tmp_dir = Path('/tmp') / reponame
-        target_dir = SKRIPTY_DIR / reponame
-
-        # ==============================================================
-        # =           REMOVE EXISTING /tmp/{reponame} FOLDER           =
-        # ==============================================================
-        if tmp_dir.exists():
-            print(f"[ {Yel}WARNING{RCol} ] '{tmp_dir}' already exists. Removing.")
-            # res = shutil.rmtree(tmp_dir, ignore_errors=True)
-            try:
-                res = shutil.rmtree(tmp_dir)
-            except Exception as e:
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-                print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] +-- Message: '{e}'")
-                os.system(f'rmdir /S /Q "{tmp_dir}"')
-
-        # ================================================
-        # =           CLONE GIT REPO INTO /tmp           =
-        # ================================================
-        print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
-        Repo.clone_from(url=f"{SERVER}/{username}/{reponame}",
-                        to_path=tmp_dir.resolve(),
-                        branch=branch,
-                        depth=1,
-                        progress=Progress())
-
-        # ==========================================
-        # =           REMOVE .GIT FOLDER           =
-        # ==========================================
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing '.git' folder")
-        git_folder = tmp_dir / '.git'
-        try:
-            res = shutil.rmtree(git_folder)
-        except Exception as e:
-            print(f"[ {BYel}WARNING{RCol} ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-            print(f"[ {BYel}WARNING{RCol} ] +-- Message: '{e}'")
-            os.system(f'rmdir /S /Q "{git_folder}"')
-
-        # ========================================
-        # =           LOAD REPO.CONFIG           =
-        # ========================================
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Checking 'repo.config'")
-        repoini = tmp_dir / 'repo.config'
-        # repoini = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/repo.config')
-        if not repoini.exists():
-            print(f"[ {BWhi}INFO{RCol}  ] '{repoini}' not found... Ignoring making executables, symlinks, ...")
-            print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
-        else:
-            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{repoini}' found. Loading config.")
-            con = configparser.ConfigParser(allow_no_value=True)
-            con.read(repoini)
-            # print(f">>> con['repo']['framework']: {con['repo']['framework']}")
-
-            # =============================================
-            # =           MAKE FILES EXECUTABLE           =
-            # =============================================
-            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Changing all FILE permissions in '{tmp_dir}' to 664")
-            for item in tmp_dir.iterdir():
-                item: Path
-                if not item.is_file():
-                    continue
-                os.chmod(item, 0o664)
-
-            for key, val in con.items('Executable'):
-                exe_file = tmp_dir / key
-                if not exe_file.exists():
-                    print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repo.config'.")
-                    continue
-                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Making '{exe_file}' executable... Permissions: 774")
-                os.chmod(exe_file, 0o774)
-
-            # ================================================================================
-            # =           CHECK IF REQUIREMENTS.TXT / REPO.CONFIG ARE DIFFERENT           =
-            # ================================================================================
-            src_requirements = tmp_dir / 'requirements.txt'
-            dst_requirements = target_dir / 'requirements.txt'
-
-            venv_update = False
-            if src_requirements.exists():
-                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{src_requirements}' exists.")
-                dst_requirements = target_dir / 'requirements.txt'
-                if not dst_requirements.exists():
-                    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{dst_requirements}' does not exists.")
-                    print(f"[ {BWhi}INFO{RCol}  ] Missing '{dst_requirements}' --> Installing '.env' and all 'PIP libs'.")
-                    venv_update = True
-                else:
-                    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{dst_requirements}' exists.")
-                    similar = filecmp.cmp(src_requirements, dst_requirements)
-                    if similar:
-                        print(f"[ {BWhi}INFO{RCol}  ] '{src_requirements}' and '{dst_requirements}' are the same. No need to update .env")
-                    else:
-                        print(f"[ {BWhi}INFO{RCol}  ] '{src_requirements}' and '{dst_requirements}' are different.")
-                        print(f"[ {BWhi}INFO{RCol}  ] Venv '.env' would be created and PIP libraries installed/updated.")
-                        venv_update = True
-
-            # ==================================================
-            # =           CREATE VIRTUAL ENVIRONMENT           =
-            # ==================================================
-            if venv_update:
-                framework = con['Repo']['Framework']
-                print(f"[ {BWhi}INFO{RCol}  ] Making virtual environment...")
-                cmd = f'{framework} -m venv {tmp_dir}/.env'
-                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
-                os.system(cmd)
-
-                # ===================================
-                # =           UPGRADE PIP           =
-                # ===================================
-                print(f"[ {BWhi}INFO{RCol}  ] Upgrading Pip")
-                cmd = f'{tmp_dir}/.env/bin/pip install --upgrade pip'
-                os.system(cmd)
-
-                # ===================================
-                # =           PIP INSTALL           =
-                # ===================================
-                print(f"[ {BWhi}INFO{RCol}  ] Running Pip install")
-                cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
-                os.system(cmd)
-
-            # =========================================
-            # =           CHANGE VENV PATHS           =
-            # =========================================
-            target_dir = SKRIPTY_DIR / reponame
-            print(f"[ {BWhi}INFO{RCol}  ] Changing venv paths '{tmp_dir}/.env' --> '{target_dir}/.env'")
-            cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
+        if not ignore_venv:
+            framework = repo_cfg['Repo']['Framework']
+            print(f"[ {BWhi}INFO{RCol}  ] Making virtual environment...")
+            cmd = f'{framework} -m venv {tmp_dir}/.env'
             print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
             os.system(cmd)
 
-            # ===================================================
-            # =           REPLACE MAIN_FILE IN run.sh           =
-            # ===================================================
-            runsh_file = tmp_dir / 'run.sh'
-            print(f"[ {BWhi}INFO{RCol}  ] In '{runsh_file}' ... Replacing 'MAIN_FILE_PLACEHOLDER' --> '{con['Repo']['main_file']}'")
-            with fileinput.FileInput(runsh_file, inplace=True) as f:
-                for line in f:
-                    print(line.replace('MAIN_FILE_PLACEHOLDER', con['Repo']['main_file']), end='')
+            # ===================================
+            # =           UPGRADE PIP           =
+            # ===================================
+            print(f"[ {BWhi}INFO{RCol}  ] Upgrading Pip")
+            cmd = f'{tmp_dir}/.env/bin/pip install --upgrade pip'
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            os.system(cmd)
 
-            # =====================================================
-            # =           CREATE REMOTE reponame FOLDER           =
-            # =====================================================
-            # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
-            if not target_dir.exists():
-                cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
-                os.system(cmd)
-                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] {target_dir} created.")
+            # ===================================
+            # =           PIP INSTALL           =
+            # ===================================
+            print(f"[ {BWhi}INFO{RCol}  ] Running Pip install")
+            cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            os.system(cmd)
 
-            # ==========================================
-            # =           RSYNC ALL THE DATA           =
-            # ==========================================
-            # Rsync all the data
-            env_dir = tmp_dir / '.env'
-            if env_dir.exists():
-                # cmd = (f'rsync -avh --delete --progress {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
-                cmd = (f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
-            else:
-                # cmd = (f'rsync -avh --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
-                cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
-                       f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
-            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
-            res = os.system(cmd)
+        # ==================================================
+        # =           CHANGE VENV PATHS with SED           =
+        # ==================================================
+        print(f"[ {BWhi}INFO{RCol}  ] Changing venv paths '{tmp_dir}/.env' --> '{target_dir}/.env'")
+        cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+        os.system(cmd)
 
-            # =============================================
-            # =           MAKE SYMBOLIC LINK(S)           =
-            # =============================================
-            for key, val in con.items('Link'):
-                src_filepath = target_dir / key
-                link_filpath = SKRIPTY_EXE / val
-                print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{link_filpath}'")
-                cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {link_filpath}"'
-                print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
-                os.system(cmd)
+        # ===================================================
+        # =           REPLACE MAIN_FILE IN run.sh           =
+        # ===================================================
+        runsh_file = tmp_dir / 'run.sh'
+        print(f"[ {BWhi}INFO{RCol}  ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{repo_cfg['Repo']['main_file']}' within '{runsh_file}'")
+        with fileinput.FileInput(runsh_file, inplace=True) as f:
+            for line in f:
+                print(line.replace('MAIN_FILE_PLACEHOLDER', repo_cfg['Repo']['main_file']), end='')
 
-        # ===============================
-        # =           CLEANUP           =
-        # ===============================
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
+        # =====================================================
+        # =           CREATE REMOTE reponame FOLDER           =
+        # =====================================================
+        # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
+        if not target_dir.exists():
+            cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
+            os.system(cmd)
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] {target_dir} created.")
+    else:
+        print(f"[ {BWhi}INFO{RCol}  ] '{repo_cfg_filepath}' not found... Ignoring making executables, symlinks, ...")
+        print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
 
-        # ==============================
-        # =           FINISH           =
-        # ==============================
+    # ==========================================
+    # =           RSYNC ALL THE DATA           =
+    # ==========================================
+    # Rsync all the data
+    # TODO: if not ignore_venv:
+    env_dir = tmp_dir / '.env'
+    if env_dir.exists():
+        cmd = f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}'
+    else:
+        cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+               f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
+    os.system(cmd)
 
-        print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
+    # =============================================
+    # =           MAKE SYMBOLIC LINK(S)           =
+    # =============================================
+    if repo_cfg_filepath.exists():
+        for key, val in repo_cfg.items('Link'):
+            src_filepath = target_dir / key
+            dst_filepath = SKRIPTY_EXE / val
+            print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{dst_filepath}'")
+            # make_symbolic_link(src_filepath, dst_filepath)
+            cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            os.system(cmd)
 
-        # ========================================
-        # =           WINDOWS THINGIES           =
-        # ========================================
-        # # Rsync all the things
-        # # --delete ... for files that are not present in the current...
-        # cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
-        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] shlex.split(cmd): {shlex.split(cmd)}")
-        # try:
-        #     res = sp.call(shlex.split(cmd))
-        #     if res != 0:
-        #         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
-        #         return 1
-        # except Exception as e:
-        #     print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
-        #     print(f"[ WARNING ] +-- Message: {e}")
+    # ===============================
+    # =           CLEANUP           =
+    # ===============================
+    remove_dir_tree(tmp_dir)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
 
-        #     print(f"[ INFO ] Removing '{SKRIPTY_DIR}\\{reponame}'... ")
-        #     os.system(f'rmdir /S /Q "{SKRIPTY_DIR}\\{reponame}"')
+    # ==============================
+    # =           FINISH           =
+    # ==============================
 
-        #     print(f"[ INFO ] Copying '{tmp_dir}' --> '{SKRIPTY_DIR}\\{reponame}'")
-        #     # dirs_exist_ok from Python3.8!!!
-        #     res = shutil.copytree(tmp_dir, f'{SKRIPTY_DIR}\\{reponame}', dirs_exist_ok=True)
+    print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
 
-        # # Cleanup
-        # print(f"[ INFO ] Cleanup. Removing '{tmp_dir}'")
-        # try:
-        #     res = shutil.rmtree(tmp_dir)
-        # except Exception as e:
-        #     print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-        #     print(f"[ WARNING ] +-- Message: '{e}'")
-        #     os.system(f'rmdir /S /Q "{tmp_dir}"')
+    # ========================================
+    # =           WINDOWS THINGIES           =
+    # ========================================
+    # # Rsync all the things
+    # # --delete ... for files that are not present in the current...
+    # cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
+    # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] shlex.split(cmd): {shlex.split(cmd)}")
+    # try:
+    #     res = sp.call(shlex.split(cmd))
+    #     if res != 0:
+    #         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
+    #         return 1
+    # except Exception as e:
+    #     print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
+    #     print(f"[ WARNING ] +-- Message: {e}")
 
-        # print("[ INFO ] Trying to load 'config.ini'")
-        # # Load up 'config.ini'
-        # config = configparser.ConfigParser(allow_no_value=True)
-        # config_ini = SKRIPTY_DIR / reponame / 'config.ini'
-        # res = config.read(config_ini)
-        # if res:
-        #     print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
-        #     # Make links
-        #     for section in config.sections():
-        #         for key, val in config[section].items():
-        #             if section == 'link':
-        #                 link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
-        #                 link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
-        #                 if os.name == 'nt':
-        #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'mklink {link_src} {link_dst}'")
-        #                     cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
-        #                     # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
-        #                     print(f">>> cmd: {cmd}")
-        #                     res = sp.call(cmd)
-        #                     # print(f">>> res: {res}")
-        #                 else:
-        #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'ln -s {link_src} {link_dst}'")
-        #                     cmd = f'ln -s {link_src} {link_dst}'
-        #                     print(f">>> cmd: {cmd}")
-        #                     res = sp.call(shlex.split(cmd))
-        #                 pass
-        #             elif section == 'executable':
-        #                 executable_file = SKRIPTY_DIR / reponame / key
-        #                 print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: chmod +x {executable_file}")
-        #                 pass
-        # else:
-        #     print('[ INFO ] config.ini not found. Ignoring.')
+    #     print(f"[ INFO ] Removing '{SKRIPTY_DIR}\\{reponame}'... ")
+    #     os.system(f'rmdir /S /Q "{SKRIPTY_DIR}\\{reponame}"')
 
-        # print("{lineno(): >4}.[ {BBla}DEBUG{RCol} ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
-        # # Check the description for 'what to do with .executable files and so on...'
-        # print(f'[ INFO ] DONE')
+    #     print(f"[ INFO ] Copying '{tmp_dir}' --> '{SKRIPTY_DIR}\\{reponame}'")
+    #     # dirs_exist_ok from Python3.8!!!
+    #     res = shutil.copytree(tmp_dir, f'{SKRIPTY_DIR}\\{reponame}', dirs_exist_ok=True)
 
-        return 0
+    # # Cleanup
+    # print(f"[ INFO ] Cleanup. Removing '{tmp_dir}'")
+    # try:
+    #     res = shutil.rmtree(tmp_dir)
+    # except Exception as e:
+    #     print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
+    #     print(f"[ WARNING ] +-- Message: '{e}'")
+    #     os.system(f'rmdir /S /Q "{tmp_dir}"')
+
+    # print("[ INFO ] Trying to load 'config.ini'")
+    # # Load up 'config.ini'
+    # config = configparser.ConfigParser(allow_no_value=True)
+    # config_ini = SKRIPTY_DIR / reponame / 'config.ini'
+    # res = config.read(config_ini)
+    # if res:
+    #     print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
+    #     # Make links
+    #     for section in config.sections():
+    #         for key, val in config[section].items():
+    #             if section == 'link':
+    #                 link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
+    #                 link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
+    #                 if os.name == 'nt':
+    #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'mklink {link_src} {link_dst}'")
+    #                     cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
+    #                     # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
+    #                     print(f">>> cmd: {cmd}")
+    #                     res = sp.call(cmd)
+    #                     # print(f">>> res: {res}")
+    #                 else:
+    #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'ln -s {link_src} {link_dst}'")
+    #                     cmd = f'ln -s {link_src} {link_dst}'
+    #                     print(f">>> cmd: {cmd}")
+    #                     res = sp.call(shlex.split(cmd))
+    #                 pass
+    #             elif section == 'executable':
+    #                 executable_file = SKRIPTY_DIR / reponame / key
+    #                 print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: chmod +x {executable_file}")
+    #                 pass
+    # else:
+    #     print('[ INFO ] config.ini not found. Ignoring.')
+
+    # print("{lineno(): >4}.[ {BBla}DEBUG{RCol} ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
+    # # Check the description for 'what to do with .executable files and so on...'
+    # print(f'[ INFO ] DONE')
+
+    return 0
 
     # User didn't specify <username>: --clone <reponame>
-    elif len(args) == 1:
+    if len(args) == 1:
         reponame = args[0]
         res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
         # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
@@ -630,7 +604,7 @@ def create_repo(args):
         },
     ]
 
-    answers = prompt(questions, style=QSTYLE_BOLD)
+    answers = prompt(questions, style=QSTYLE)
 
     args.reponame = answers.get('reponame')
     args.description = answers.get('description')
@@ -993,13 +967,7 @@ def remove_org(args):
     """Remove organization from gitea"""
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Removing org.")
 
-    session = requests.Session()
-
-    session.headers.update({
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'Authorization': f'token {GITEA_TOKEN}',
-    })
+    session = args.session
 
     if not args.organization:
         print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <organization>")
@@ -1206,12 +1174,15 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
+    # Initialize logger depending on the -v, -vv, -vvv arguments
+    init_logging(args)
+
+    # Initialize session with headers containing GITEA_TOKEN
+    args.session = init_session(args)
+
     print("--------------------------------------------------------------------------------")
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args: {args}")
     print("--------------------------------------------------------------------------------")
-
-    # Initialize logger depending on the -v, -vv, -vvv arguments
-    init_logging(args)
 
     # In case of no input, show help
     # if not any(vars(args).values()):
@@ -1221,10 +1192,14 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit()
 
-    try:
-        args.func(args)
-    except Exception as e:
-        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
+
+    # React on user inputted command/arguments
+    args.func(args)
+    # try:
+    #     args.func(args)
+    # except Exception as e:
+    #     raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
+
 
     if args.clone:
         clone_repo(args.clone)

@@ -1,6 +1,11 @@
+import os
 import utils
 import pytest
 from io import StringIO
+from pathlib import Path
+
+SCRIPTDIR = Path(__file__).resolve().parent
+TEST_FILES = SCRIPTDIR / 'files'
 
 
 def test_ask_with_defaults_true(monkeypatch):
@@ -32,3 +37,30 @@ def test_ask_with_defaults(monkeypatch, question, defaults, user_input, result):
         assert utils.ask_with_defaults(question, defaults) != result
     else:
         assert utils.ask_with_defaults(question, defaults) == result
+
+
+def test_remove_dir_tree():
+    path = '/tmp/test_removedir'
+    os.system(f'mkdir {path}')
+    res = utils.remove_dir_tree(path)
+    assert res is True
+
+
+def test_requirements_similar_same():
+    assert True is utils.requirements_similar(
+        TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_SRC.txt')
+
+
+def test_requirements_similar_not_same():
+    assert False is utils.requirements_similar(
+        TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_DST.txt')
+
+
+def test_requirements_similar_src_missing():
+    assert False is utils.requirements_similar(
+        TEST_FILES / 'not_a_file', TEST_FILES / 'requirements_DST.txt')
+
+
+def test_requirements_similar_dst_missing():
+    assert False is utils.requirements_similar(
+        TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'not_a_file')

@@ -128,6 +128,7 @@ Description:
     parser_deploy.add_argument('username', nargs='?', default=getpass.getuser(), help='Help for <username>')
     parser_deploy.add_argument('branch', nargs='?', default='master', help='Help for <branch>')
     parser_deploy.formatter_class = CustomHelpFormatter
+    parser_deploy.set_defaults(func=eve_git.deploy)
 
     group = parser.add_mutually_exclusive_group()
 
