@@ -303,6 +303,23 @@ def deploy(args):
             cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
             os.system(cmd)
             print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] {target_dir} created.")
+
+        # =============================================
+        # =           MAKE SYMBOLIC LINK(S)           =
+        # =============================================
+        for key, val in repo_cfg.items('Link'):
+            src_filepath = target_dir / key
+            dst_filepath = SKRIPTY_EXE / val
+            print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{dst_filepath}'")
+            # make_symbolic_link(src_filepath, dst_filepath)
+            if os.name != 'nt':
+                cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
+            else:
+                cmd = f'cmd /c "mklink {link_dst} {link_src}"'
+                # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
+            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
+            os.system(cmd)
+
     else:
         print(f"[ {BWhi}INFO{RCol}  ] '{repo_cfg_filepath}' not found... Ignoring making executables, symlinks, ...")
         print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
@@ -311,28 +328,16 @@ def deploy(args):
     # =           RSYNC ALL THE DATA           =
     # ==========================================
     # Rsync all the data
-    # TODO: if not ignore_venv:
-    env_dir = tmp_dir / '.env'
-    if env_dir.exists():
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] ignore_venv: '{ignore_venv}'")
+    # Case venv was created, copy all the data, even venv, because something was updated
+    if not ignore_venv:
         cmd = f'rsync -ah --delete {tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}'
+    # Case venv wasn't created locally, ignore venv folders so that they will not be deleted in target_dir
     else:
         cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
                f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Rsync cmd: '{cmd}'")
     os.system(cmd)
-
-    # =============================================
-    # =           MAKE SYMBOLIC LINK(S)           =
-    # =============================================
-    if repo_cfg_filepath.exists():
-        for key, val in repo_cfg.items('Link'):
-            src_filepath = target_dir / key
-            dst_filepath = SKRIPTY_EXE / val
-            print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{dst_filepath}'")
-            # make_symbolic_link(src_filepath, dst_filepath)
-            cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
-            print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] cmd: '{cmd}'")
-            os.system(cmd)
 
     # ===============================
     # =           CLEANUP           =
@@ -340,142 +345,7 @@ def deploy(args):
     remove_dir_tree(tmp_dir)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] '{tmp_dir}' removed")
 
-    # ==============================
-    # =           FINISH           =
-    # ==============================
-
     print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
-
-    # ========================================
-    # =           WINDOWS THINGIES           =
-    # ========================================
-    # # Rsync all the things
-    # # --delete ... for files that are not present in the current...
-    # cmd = f'rsync -avh --progress --remove-source-files {tmp_dir}/ {SKRIPTY_SERVER}{SKRIPTY_DIR}/{reponame}'
-    # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] shlex.split(cmd): {shlex.split(cmd)}")
-    # try:
-    #     res = sp.call(shlex.split(cmd))
-    #     if res != 0:
-    #         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong with rsync...")
-    #         return 1
-    # except Exception as e:
-    #     print(f"[ WARNING ] rsync failed... Trying shutil.copy. Error msg bellow")
-    #     print(f"[ WARNING ] +-- Message: {e}")
-
-    #     print(f"[ INFO ] Removing '{SKRIPTY_DIR}\\{reponame}'... ")
-    #     os.system(f'rmdir /S /Q "{SKRIPTY_DIR}\\{reponame}"')
-
-    #     print(f"[ INFO ] Copying '{tmp_dir}' --> '{SKRIPTY_DIR}\\{reponame}'")
-    #     # dirs_exist_ok from Python3.8!!!
-    #     res = shutil.copytree(tmp_dir, f'{SKRIPTY_DIR}\\{reponame}', dirs_exist_ok=True)
-
-    # # Cleanup
-    # print(f"[ INFO ] Cleanup. Removing '{tmp_dir}'")
-    # try:
-    #     res = shutil.rmtree(tmp_dir)
-    # except Exception as e:
-    #     print(f"[ WARNING ] Can't use shutil.rmtree(). Error msg bellow. Trying 'rmdir /S /Q'")
-    #     print(f"[ WARNING ] +-- Message: '{e}'")
-    #     os.system(f'rmdir /S /Q "{tmp_dir}"')
-
-    # print("[ INFO ] Trying to load 'config.ini'")
-    # # Load up 'config.ini'
-    # config = configparser.ConfigParser(allow_no_value=True)
-    # config_ini = SKRIPTY_DIR / reponame / 'config.ini'
-    # res = config.read(config_ini)
-    # if res:
-    #     print("[ INFO ] Loading Key/Val pairs, creating links and executables.")
-    #     # Make links
-    #     for section in config.sections():
-    #         for key, val in config[section].items():
-    #             if section == 'link':
-    #                 link_src = SKRIPTY_DIR / reponame / key  # /expSW/SOFTWARE/skripty/{reponame}/{exefile}
-    #                 link_dst = SKRIPTY_EXE / val  # /expSw/SOFTWARE/bin/{linkname}
-    #                 if os.name == 'nt':
-    #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'mklink {link_src} {link_dst}'")
-    #                     cmd = f'cmd /c "mklink {link_dst} {link_src}"'  # cmd
-    #                     # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
-    #                     print(f">>> cmd: {cmd}")
-    #                     res = sp.call(cmd)
-    #                     # print(f">>> res: {res}")
-    #                 else:
-    #                     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: 'ln -s {link_src} {link_dst}'")
-    #                     cmd = f'ln -s {link_src} {link_dst}'
-    #                     print(f">>> cmd: {cmd}")
-    #                     res = sp.call(shlex.split(cmd))
-    #                 pass
-    #             elif section == 'executable':
-    #                 executable_file = SKRIPTY_DIR / reponame / key
-    #                 print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Doing: chmod +x {executable_file}")
-    #                 pass
-    # else:
-    #     print('[ INFO ] config.ini not found. Ignoring.')
-
-    # print("{lineno(): >4}.[ {BBla}DEBUG{RCol} ] config['other']['files'].strip().split(newline):", config['other']['files'].strip().split('\n'))
-    # # Check the description for 'what to do with .executable files and so on...'
-    # print(f'[ INFO ] DONE')
-
-    return 0
-
-    # User didn't specify <username>: --clone <reponame>
-    if len(args) == 1:
-        reponame = args[0]
-        res = requests.get(f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
-
-        data = json.loads(res.content)
-
-        # Check if there was a good response
-        if not data.get('ok'):
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
-            return 1
-        elif not data.get('data'):
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
-            return 1
-
-        # Data acquired, list all found repos in nice table
-        headers = ('id', 'repository', 'user', 'description')
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True)
-        print(tbl)
-
-        # Ask for repo ID
-        answer = input("Enter repo ID: ")
-        if not answer:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
-            return 1
-        elif not answer.isdigit():
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-            return 1
-
-        # Get the right repo by it's ID
-        repo_id = int(answer)
-        selected_repository = [ls for ls in results if ls[0] == repo_id]
-
-        # User made a mistake and entered number is not one of the listed repo IDs
-        if len(selected_repository) == 0:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-            sys.exit(1)
-
-        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(selected_repository) > 1:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
-                  f"Like really... Len is: {len(selected_repository)}")
-            sys.exit(1)
-
-        print(f"[ INFO ] Deploying ID: {repo_id}")
-        reponame, username = selected_repository[0][1], selected_repository[0][2]
-        deploy([reponame, username])
-        return 0
-
-    # PYTHON
-    # Pokud skript obsahuje testy, tak napred udelat TESTY a pokracovat jen v pripade, ze jsou zelene
-    # mozna --ignore-tests
-    #
-    # BASH
-    # Proste jen hodi na misto, smaze .git a udela link
-
     return 0
 
 
@@ -1042,7 +912,6 @@ def remove_org(args):
     print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{args.organization}'")
     answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
 
-    # TODO mam pocit, ze kdyz se smaze organizace, tak se jen repo v nich nekam premisti, zkusit
     if answer.lower() not in ['y', 'yes']:
         print(f"[ INFO ] Cancelling... Nothing removed.")
         return 0
