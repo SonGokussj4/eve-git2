@@ -130,6 +130,13 @@ Description:
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
+
+    parser_edit = subparsers.add_parser('edit', help='Edit all the things!!!', parents=[common])
+    parser_edit.add_argument('repository', help='Help for <repository>')
+    parser_edit.add_argument('username', nargs='?', help='Help for <username>')
+    parser_edit.formatter_class = CustomHelpFormatter
+    parser_edit.set_defaults(func=eve_git.edit_desc)
+
     group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
@@ -142,11 +149,6 @@ Description:
                        action=required_length(1, 2),
                        metavar=('repository', 'user'),
                        help='Clone existing <repository> [user] into current directory')
-
-    group.add_argument('--edit', dest='edit', nargs='+', type=str,
-                       action=required_length(1, 2),
-                       metavar=('repository', 'user'),
-                       help='Edit description in existing <repository> [user].')
 
     parser.epilog = "--- Arguments common to all sub-parsers ---" \
         + common.format_help().replace(common.format_usage(), '')

@@ -605,14 +605,7 @@ def list_repo(args):
     url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-    repo_headers = {
-        'accept': 'application/json',
-        'content-type': 'application/json',
-        'Authorization': f'token {GITEA_TOKEN}',
-    }
-    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] repo_headers: {repo_headers}")
-
-    res = requests.get(url, headers=repo_headers)
+    res = args.session.get(url)
     print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
     data = json.loads(res.content)
@@ -628,7 +621,7 @@ def list_repo(args):
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
-    headers = ('id', 'repository', 'user', 'description')
+    tbl_headers = ('id', 'repository', 'user', 'description')
     results = []
     if args.repository is not None and args.username:
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
@@ -641,7 +634,7 @@ def list_repo(args):
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
 
-    tbl = columnar(results, headers, no_borders=True, wrap_max=5)
+    tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=5)
     print(tbl)
 
     return 0
@@ -950,97 +943,126 @@ def remove_org(args):
     return 0
 
 
-def edit_desc(args_clone):
+def edit_desc(args):
     """Edit description in repo."""
-    # User specified both arguments: --clone <reponame> <username>
-    if len(args_clone) == 2:
-        reponame, username = args_clone
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] Editing repo.")
 
-        # Does the username exist?
-        res = requests.get(f"{SERVER}/api/v1/users/{username}")
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!")
-            sys.exit(1)
+    if not args.username:
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] User didn't specify <username>")
 
-        # Does the <repository> of <user> exist?
-        res = requests.get(f"{SERVER}/api/v1/repos/{username}/{reponame}")
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{username}/{reponame}' does not exist.")
-            sys.exit(1)
+        url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: {url}")
 
-        # Everything OK, edit description
-        description = input(f"Write a description for {reponame}: ")
-        repo_headers = {'Authorization': GITEA_TOKEN,
-                        'accept': 'application/json',
-                        'Content-Type': 'application/json'}
-
-        repo_data = {'description': description}
-
-        # res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}?access_token={GITEA_TOKEN}",
-        res = requests.patch(url=f"{SERVER}/api/v1/repos/{username}/{reponame}",
-                             headers=repo_headers,
-                             json=repo_data)
-        if res.status_code != 200:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] ")
-            sys.exit(1)
-
-        print("[ INFO ] DONE")
-        return res
-
-        # User didn't specify <username>: --clone <reponame>
-    elif len(args_clone) == 1:
-        reponame = args_clone[0]
-        res = requests.get(
-            f"{SERVER}/api/v1/repos/search?q={reponame}&sort=created&order=desc")
-        # print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
+        res = args.session.get(url)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] res: {res}")
 
         data = json.loads(res.content)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] data.get('ok'): {data.get('ok')}")
 
         # Check if there was a good response
         if not data.get('ok'):
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}")
-            sys.exit(1)
-        elif not data.get('data'):
-            print(
-                f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{reponame}' returned 0 results... Try something different.")
-            sys.exit(1)
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+            raise Exception(msg)
+
+        if not data.get('data'):
+            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+            raise Exception(msg)
 
         # Data acquired, list all found repos in nice table
         headers = ('id', 'repository', 'user', 'description')
         results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                    for item in data.get('data')]
-        tbl = columnar(results, headers, no_borders=True)
-        print(tbl)
+        tbl = columnar(results, headers, no_borders=True, wrap_max=0)
+        tbl_as_string = str(tbl).split('\n')
 
-        # Ask for repo ID
-        answer = input("Enter repo ID: ")
-        if not answer:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to write an ID")
-            sys.exit(1)
-        elif not answer.isdigit():
-            print(
-                f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] What you entered is not a number... You have to write one of the IDs.")
-            sys.exit(1)
+        # Ask for repo to edit
+        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
+        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+        choices.append(Separator('\n'))
 
-        # Get the right repo by it's ID
-        repo_id = int(answer)
+        questions = [{
+            'type': 'list',
+            'choices': choices,
+            'pageSize': 50,
+            'name': 'repo_id',
+            'message': "Select repo to edit: ",
+        }]
+
+        answers = prompt(questions, style=QSTYLE)
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
+        if not answers:
+            msg = f"[ {BWhi}INFO{RCol} ] Canceled by user."
+            raise Exception(msg)
+
+        repo_id = int(answers.get('repo_id'))
         selected_repository = [ls for ls in results if ls[0] == repo_id]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] selected_repository: {selected_repository[0]}")
 
-        # User made a mistake and entered number is not one of the listed repo IDs
-        if len(selected_repository) == 0:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Not a valid answer. You have to select one of the IDs.")
-            sys.exit(1)
+        args.repository = selected_repository[0][1]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.repository: {args.repository}")
 
-        # Something went wrong. There should not be len > 1... Where's the mistake in the code?
-        elif len(selected_repository) > 1:
-            print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Beware! len(selected_repository) > 1... That's weird... "
-                  f"Like really... Len is: {len(selected_repository)}")
-            sys.exit(1)
+        args.username = selected_repository[0][2]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.username: {args.username}")
 
-        print(f"[ INFO ] Editing ID: {repo_id}")
-        reponame, username = selected_repository[0][1], selected_repository[0][2]
-        edit_desc([reponame, username])
-        return 0
+        args.description = selected_repository[0][3]
+        print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] args.description: {args.description}")
+
+    # Does the username exist?
+    res = args.session.get(f"{SERVER}/api/v1/users/{args.username}")
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{args.username}' doesn't exist!"
+        raise Exception(msg)
+
+    # Does the <repository> of <user> exist?
+    res = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{SERVER}/{args.username}/{args.repository}' does not exist."
+        raise Exception(msg)
+
+    # Everything OK, edit the repository
+    print(f"[ {BWhi}INFO{RCol} ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
+
+    questions = [
+        {
+            'message': "Description:",
+            'default': args.description,
+            'name': 'description',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+    ]
+
+    answers = prompt(questions, style=QSTYLE)
+    print(f"{lineno(): >4}.[ {BBla}DEBUG{RCol} ] answers: {answers}")
+    if not answers:
+        msg = f"[ {BWhi}INFO{RCol} ] Canceled by user."
+        raise Exception(msg)
+
+    args.description = answers.get('description')
+
+    repo_data = {'description': args.description}
+
+    res = args.session.patch(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", json=repo_data)
+
+    # Case when normal user tries to remove repository of another user and doesn't have authorization for that
+    if res.status_code == 403:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden... APIForbiddenError is a forbidden error response. Not authorized (weak GITEA_TOKEN)"
+        raise Exception(msg)
+
+    # Case when something is wrong with GITEA_TOKEN...
+    elif res.status_code == 422:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] APIValidationError is error format response related to input validation"
+        raise Exception(msg)
+
+    # Other cases should not come
+    if res.status_code != 200:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}"
+        raise Exception(msg)
+
+    print(f"[ {BWhi}INFO{RCol} ] DONE")
+
+    return 0
 
 
 # ====================================
@@ -1080,8 +1102,4 @@ if __name__ == '__main__':
 
     if args.clone:
         clone_repo(args.clone)
-        sys.exit()
-
-    elif args.edit:
-        edit_desc(args.edit)
         sys.exit()
