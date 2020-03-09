@@ -331,12 +331,84 @@ def deploy(args):
     # ===============================
     # =           CLEANUP           =
     # ===============================
-    # remove_dir_tree(tmp_dir)
-    # lineno(f"'{tmp_dir}' removed")
+    remove_dir_tree(tmp_dir)
+    lineno(f"'{tmp_dir}' removed")
 
     print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
     return 0
 
+
+def connect_here(args):
+    print("hi there")
+    url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
+    lineno(f"url: {url}")
+
+    res = args.session.get(url)
+    lineno(f"res: {res}")
+
+    data = json.loads(res.content)
+    lineno(f"data.get('ok'): {data.get('ok')}")
+
+    # Check if there was a good response
+    if not data.get('ok'):
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+        raise Exception(msg)
+
+    if not data.get('data'):
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
+        raise Exception(msg)
+
+    # Data acquired, list all found repos in nice table
+    tbl_headers = ('id', 'repository', 'user', 'description')
+    results = [[item['id'], item['name'], item['owner']['login'], item['description']]
+               for item in data.get('data')]
+    tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
+    # print(tbl)
+    tbl_as_string = str(tbl).split('\n')
+    print(tbl_as_string)
+
+    # Ask for repo to connect
+    choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
+    choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
+    choices.append(Separator('\n'))
+
+    questions = [{
+        'type': 'list',
+        'choices': choices,
+        'pageSize': 50,
+        'name': 'repo_id',
+        'message': "Select repo to remove: ",
+    }]
+
+    answers = prompt(questions, style=QSTYLE)
+    lineno(f"answers: {answers}")
+
+    if not answers.get('repo_id'):
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
+        raise Exception(msg)
+
+    repo_id = int(answers.get('repo_id'))
+    selected_repository = [ls for ls in results if ls[0] == repo_id]
+    lineno(f"selected_repository: {selected_repository[0]}")
+
+    args.repository = selected_repository[0][1]
+    lineno(f"args.repository: {args.repository}")
+
+    args.username = selected_repository[0][2]
+    lineno(f"args.username: {args.username}")
+
+    check_user_repo_exist(SERVER, args)
+
+    # Everything OK, delete the repository
+    print(f"[ {BWhi}INFO{RCol} ] You are about to CONNECT repository: '{SERVER}/{args.username}/{args.repository}'")
+
+    print(f"[ {BWhi}INFO{RCol} ] Connecting '{SERVER}/{args.username}/{args.repository}'")
+
+    cmd = f"git remote add {args.remote_name} {SERVER}/{args.username}/{args.repository}"
+    lineno(f"cmd: {cmd}")
+
+    os.system(cmd)
+    return 0
 
 @traced
 @logged

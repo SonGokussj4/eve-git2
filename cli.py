@@ -144,6 +144,13 @@ Description:
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
+    # CONNECT
+    parser_connect = subparsers.add_parser('connect', help='Connect current thing!!!', parents=[common])
+    parser_connect.add_argument('repository', nargs='?', default='', help='Help for <repository>')
+    parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='Help for <repository>')
+    parser_connect.formatter_class = CustomHelpFormatter
+    parser_connect.set_defaults(func=eve_git.connect_here)
+
     # group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
