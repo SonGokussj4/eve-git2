@@ -246,17 +246,6 @@ def deploy(args):
         lineno(f"cmd: '{cmd}'")
         os.system(cmd)
 
-        # # Replace main_file string in run.sh
-        # runsh_file = tmp_dir / 'run.sh'
-        # lineno(f"runsh_file: '{runsh_file}'")
-        # main_file = repo_cfg['venv']['main_file']
-        # lineno(f"main_file: '{main_file}'")
-
-        # print(f"[ INFO ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{main_file}' within '{runsh_file}'")
-        # with fileinput.FileInput(runsh_file, inplace=True) as f:
-        #     for line in f:
-        #         print(line.replace('MAIN_FILE_PLACEHOLDER', main_file), end='')
-
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
             cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
@@ -843,7 +832,6 @@ if __name__ == '__main__':
         sys.exit()
 
     if args.update_token:
-        print("DEBUG: args.update_token:", args.update_token)
         update_token(args)
         raise SystemExit
 
