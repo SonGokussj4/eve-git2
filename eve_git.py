@@ -592,44 +592,10 @@ def list_org(args):
 @logged
 def list_repo(args):
     """Function for listing directories."""
-    lineno(f"Listing repo.")
-
-    url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc&limit=50"
-    lineno(f"url: {url}")
-
-    res = args.session.get(url)
-    lineno(f"res: {res}")
-
-    data = json.loads(res.content)
-    lineno(f"data.get('ok'): {data.get('ok')}")
-
-    # Check if there was a good response
-    if not data.get('ok'):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
-        raise Exception(msg)
-
-    if not data.get('data'):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
-        raise Exception(msg)
-
-    # Data acquired, list all found repos in nice table
-    tbl_headers = ('id', 'repository', 'user', 'description')
-    results = []
-    if args.repository is not None and args.username:
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data') if args.username.lower() in item['owner']['login'].lower()]
-
-        if len(results) == 0:
-            print(f"[ {BYel}WARNING{RCol} ] No repository with += username: '{args.username}' found. Listing for all users.")
-
-    if len(results) == 0 or not any([args.repository, args.username]):
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data')]
-
-    tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=5)
+    lineno(f"Listing repository.")
+    tbl = get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
     print(tbl)
-
-    return 0
+    return
 
 
 @traced

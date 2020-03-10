@@ -22,6 +22,7 @@ from PyInquirer import style_from_dict, Token, prompt, Separator
 class Selected:
     repository: str = ''
     username: str = ''
+    description: str = ''
     organization: str = ''
 
 
@@ -263,7 +264,7 @@ def get_repo_list_as_table(session: requests.Session(), server: str, repository:
 
 
 def select_repo_from_list(session, server, repository, question):
-    """Make columnar() table selectable, return Selected('repository', 'username') object.
+    """Make columnar() table selectable, return Selected('repository', 'username', 'description') object.
 
     Arguments:
         - session: requests.Session() object with updated headers with GITEA_TOKEN
