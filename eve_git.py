@@ -151,7 +151,7 @@ def init_session(args):
 @traced
 @logged
 def deploy(args):
-    print(f"[ {BWhi}INFO{RCol}  ] Deploying...")
+    print(f"[ INFO ] Deploying...")
 
     lineno(f"args.repository: {args.repository}")
     lineno(f"args.username: {args.username}")
@@ -163,36 +163,25 @@ def deploy(args):
     tmp_dir = Path('/tmp') / args.repository
     target_dir = SKRIPTY_DIR / args.repository
 
-    # ================================================================
-    # =           REMOVE EXISTING /tmp/{repository} FOLDER           =
-    # ================================================================
+    # Remove existing /tmp/{repository} folder
     if tmp_dir.exists():
         print(f"[ {Yel}WARNING{RCol} ] '{tmp_dir}' already exists. Removing.")
         removed = remove_dir_tree(tmp_dir)
         lineno(f"removed: {removed}")
 
-    # ================================================
-    # =           CLONE GIT REPO INTO /tmp           =
-    # ================================================
-    print(f"[ {BWhi}INFO{RCol}  ] Clonning to '{tmp_dir}' DONE")
-
+    print(f"[ INFO ] Clonning to '{tmp_dir}'...")
     url = f"{SERVER}/{args.username}/{args.repository}"
-    lineno(f"Clonning url: {url}")
+    lineno(f"url: {url}")
 
-    Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
+    tmp_repo = Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
 
-    # ==========================================
-    # =           REMOVE .GIT FOLDER           =
-    # ==========================================
+    # Remove .git folder in /tmp repo
     print(f"[ {BWhi}INFO{RCol} ] Removing '.git' folder")
-    git_folder = tmp_dir / '.git'
-    lineno(f"Removing '{git_folder}'")
-    remove_dir_tree(git_folder)
+    lineno(f"Removing '{tmp_repo.git_dir}'")
+    remove_dir_tree(tmp_repo.git_dir)
 
-    # ========================================
-    # =           LOAD REPO.CONFIG           =
-    # ========================================
-    lineno(f"Checking 'repo.config'")
+    # Load repo.config from project root directory
+    lineno(f"Checking for 'repo.config'")
     repo_cfg_filepath = tmp_dir / 'repo.config'
     ignore_venv = True
 
@@ -201,9 +190,7 @@ def deploy(args):
         repo_cfg = configparser.ConfigParser(allow_no_value=True)
         repo_cfg.read(repo_cfg_filepath)
 
-        # =============================================
-        # =           MAKE FILES EXECUTABLE           =
-        # =============================================
+        # Make files executable
         lineno(f"Changing permissions for all files in '{tmp_dir}' to 664")
         for item in tmp_dir.iterdir():
             item: Path
@@ -219,79 +206,60 @@ def deploy(args):
             lineno(f"Making '{exe_file}' executable... Permissions: 774")
             os.chmod(exe_file, 0o774)
 
-        # ================================================================================
-        # =           CHECK IF REQUIREMENTS.TXT / REPO.CONFIG ARE DIFFERENT           =
-        # ================================================================================
+        # Check if requirements.txt / repo.config are different
         src_requirements = tmp_dir / 'requirements.txt'
-        lineno(f"src_requirements: {src_requirements}")
         dst_requirements = target_dir / 'requirements.txt'
-        lineno(f"dst_requirements: {dst_requirements}")
         ignore_venv = requirements_similar(src_requirements, dst_requirements)
         lineno(f"ignore_venv: {ignore_venv}")
 
-        # ==================================================
-        # =           CREATE VIRTUAL ENVIRONMENT           =
-        # ==================================================
+        # Requirements.txt files are different. Create virtual environment
         if not ignore_venv:
             framework = repo_cfg['Repo']['Framework']
-            print(f"[ {BWhi}INFO{RCol}  ] Making virtual environment...")
+            print(f"[ INFO ] Making virtual environment...")
             cmd = f'{framework} -m venv {tmp_dir}/.env'
             lineno(f"cmd: '{cmd}'")
             os.system(cmd)
 
-            # ===================================
-            # =           UPGRADE PIP           =
-            # ===================================
-            print(f"[ {BWhi}INFO{RCol}  ] Upgrading Pip")
+            # Upgrade pip
+            print(f"[ INFO ] Upgrading Pip")
             cmd = f'{tmp_dir}/.env/bin/pip install --upgrade pip'
             lineno(f"cmd: '{cmd}'")
             os.system(cmd)
 
-            # ===================================
-            # =           PIP INSTALL           =
-            # ===================================
-            print(f"[ {BWhi}INFO{RCol}  ] Running Pip install")
+            # Pip install
+            print(f"[ INFO ] Running Pip install")
             cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
             lineno(f"cmd: '{cmd}'")
             os.system(cmd)
 
-        # ==================================================
-        # =           CHANGE VENV PATHS with SED           =
-        # ==================================================
-        print(f"[ {BWhi}INFO{RCol}  ] Changing venv paths '{tmp_dir}/.env' --> '{target_dir}/.env'")
+        # Replace venv paths with sed to target project path
+        print(f"[ INFO ] Changing venv paths inside files: '{tmp_dir}/.env' --> '{target_dir}/.env'")
         cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
         lineno(f"cmd: '{cmd}'")
         os.system(cmd)
 
-        # ===================================================
-        # =           REPLACE MAIN_FILE IN run.sh           =
-        # ===================================================
-        runsh_file = tmp_dir / 'run.sh'
-        lineno(f"runsh_file: '{runsh_file}'")
-        main_file = repo_cfg['venv']['main_file']
-        lineno(f"main_file: '{main_file}'")
+        # # Replace main_file string in run.sh
+        # runsh_file = tmp_dir / 'run.sh'
+        # lineno(f"runsh_file: '{runsh_file}'")
+        # main_file = repo_cfg['venv']['main_file']
+        # lineno(f"main_file: '{main_file}'")
 
-        print(f"[ {BWhi}INFO{RCol}  ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{main_file}' within '{runsh_file}'")
-        with fileinput.FileInput(runsh_file, inplace=True) as f:
-            for line in f:
-                print(line.replace('MAIN_FILE_PLACEHOLDER', main_file), end='')
+        # print(f"[ INFO ] Replacing 'MAIN_FILE_PLACEHOLDER' --> '{main_file}' within '{runsh_file}'")
+        # with fileinput.FileInput(runsh_file, inplace=True) as f:
+        #     for line in f:
+        #         print(line.replace('MAIN_FILE_PLACEHOLDER', main_file), end='')
 
-        # =====================================================
-        # =           CREATE REMOTE reponame FOLDER           =
-        # =====================================================
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
             cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
             os.system(cmd)
             lineno(f"{target_dir} created.")
 
-        # =============================================
-        # =           MAKE SYMBOLIC LINK(S)           =
-        # =============================================
+        # Make symbolic link(s)
         for key, val in repo_cfg.items('Link'):
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
-            print(f"[ {BWhi}INFO{RCol}  ] Linking '{src_filepath}' --> '{dst_filepath}'")
+            print(f"[ INFO ] Linking '{src_filepath}' --> '{dst_filepath}'")
             # make_symbolic_link(src_filepath, dst_filepath)
             if os.name != 'nt':
                 cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
@@ -301,15 +269,14 @@ def deploy(args):
             lineno(f"cmd: '{cmd}'")
             os.system(cmd)
 
+    # Case repo.config file was not found in project
     else:
-        print(f"[ {BWhi}INFO{RCol}  ] '{repo_cfg_filepath}' not found... Ignoring making executables, symlinks, ...")
-        print(f"[ {BWhi}INFO{RCol}  ] To create a repo.config.template, use 'eve-git template repo.config'")
+        print(f"[ INFO ] '{repo_cfg_filepath}' not found... Ignoring making executables, symlinks, ...")
+        print(f"[ INFO ] To create a repo.config.template, use 'eve-git template repo.config'")
 
-    # ==========================================
-    # =           RSYNC ALL THE DATA           =
-    # ==========================================
     # Rsync all the data
     lineno(f"ignore_venv: '{ignore_venv}'")
+
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
         if os.name != 'nt':
@@ -326,20 +293,18 @@ def deploy(args):
     lineno(f"Copy cmd: '{cmd}'")
     os.system(cmd)
 
-    # ===============================
-    # =           CLEANUP           =
-    # ===============================
+    # Cleanup
     remove_dir_tree(tmp_dir)
     lineno(f"'{tmp_dir}' removed")
 
-    print(f"[ {BWhi}INFO{RCol}  ] Deployment completed.")
+    print(f"[ INFO ] Deployment completed.")
     return 0
 
 
 @traced
 @logged
 def connect_here(args):
-    print(f"[ {BWhi}INFO{RCol}  ] Connecting...")
+    print(f"[ INFO ] Connecting...")
     if not is_git_repo(CURDIR):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Current location is not git repository: '{CURDIR.resolve()}'"
         raise Exception(msg)
@@ -431,6 +396,8 @@ def create_org(args):
     answers = prompt(questions, style=QSTYLE)
     if not answers:
         raise SystemExit
+
+    lineno(f"answers: {answers}")
 
     args.organization = answers.get('organization')
     args.description = answers.get('description')
