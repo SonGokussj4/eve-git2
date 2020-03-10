@@ -315,7 +315,7 @@ def deploy(args):
 @traced
 @logged
 def connect_here(args):
-    print(f"[ INFO ] Connecting...")
+    print(f"[ INFO ] Connecting remote repository with this one (local)")
     if not is_git_repo(CURDIR):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Current location is not git repository: '{CURDIR.resolve()}'"
         raise Exception(msg)
@@ -338,7 +338,7 @@ def connect_here(args):
     # Case repo is missing remote, add 'gitea'
     if len(repo.remotes) == 0:
         repo.create_remote('gitea', new_url)
-        print(f"[ {BWhi}DONE{RCol} ] Done (Created new 'gitea' remote)")
+        print(f"[ DONE ] Done (Created new 'gitea' remote)")
         return
 
     # Case repo has already some remotes. Go through them, if any 'gitea', ask for rewrite. Add otherwise.
@@ -356,14 +356,19 @@ def connect_here(args):
         answers = prompt(questions, style=QSTYLE)
         if not answers:
             raise SystemExit
+        lineno(f"answers: {answers}")
+
         if answers.get('continue'):
             remote.set_url(f'{new_url}')
-            print(f"[ {BWhi}DONE{RCol} ] Done (Modified existing 'gitea' remote)")
+            print(f"[ DONE ] Remote 'gitea' changed from '{remote.url}' --> '{new_url}'")
             return
+        else:
+            print("[ INFO ] Modifying url canceled.")
+            raise SystemExit
 
     lineno(f"Neither of the repositories was named 'gitea', adding a new one.")
     repo.create_remote('gitea', new_url)
-    print(f"[ {BWhi}DONE{RCol} ] Done (Added new 'gitea' remote)")
+    print(f"[ DONE ] Done (Added new 'gitea' remote)")
     return
 
 
