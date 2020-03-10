@@ -262,14 +262,14 @@ def select_repo_from_list(session, server, repository, question):
         alic_stats      ptinka   Staty pro alici
 
         >>> <enter>
-        Selected(repository='CMM', username='ptinka')
+        Selected(repository='CMM', username='ptinka', description='Tool to ...')
     """
     tbl = get_repo_list_as_table(session, server, repository)
 
     tbl_as_string = tbl.split('\n')
     table_header, table_body = tbl_as_string[1], tbl_as_string[3:-1]
     repo_list = [
-        {'name': item, 'value': (item.split()[0], item.split()[1])}
+        {'name': item, 'value': [val.strip() for val in item.split(maxsplit=2)]}
         for item in table_body
     ]
 
