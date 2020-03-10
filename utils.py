@@ -286,9 +286,11 @@ def select_repo_from_list(session, server, repository, question):
     }]
 
     answers = prompt(questions, style=QSTYLE)
-    lineno(f"answers: {answers}")
+
     if not answers:
         raise SystemExit
+
+    lineno(f"answers: {answers}")
 
     return Selected(*answers.get('selected'))
 

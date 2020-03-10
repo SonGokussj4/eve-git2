@@ -725,79 +725,19 @@ def remove_repo(args):
 
     if not args.username:
         lineno(f"User didn't specify <username>")
+        selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to remove: ")
 
-        url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
-        lineno(f"url: {url}")
-
-        res = args.session.get(url)
-        lineno(f"res: {res}")
-
-        data = json.loads(res.content)
-        lineno(f"data.get('ok'): {data.get('ok')}")
-
-        # Check if there was a good response
-        if not data.get('ok'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
-            raise Exception(msg)
-
-        if not data.get('data'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
-            raise Exception(msg)
-
-        # Data acquired, list all found repos in nice table
-        tbl_headers = ('id', 'repository', 'user', 'description')
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data')]
-        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
-        # print(tbl)
-        tbl_as_string = str(tbl).split('\n')
-
-        # Ask for repo to remove
-        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
-        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
-        choices.append(Separator('\n'))
-
-        questions = [{
-            'type': 'list',
-            'choices': choices,
-            'pageSize': 50,
-            'name': 'repo_id',
-            'message': "Select repo to remove: ",
-        }]
-
-        answers = prompt(questions, style=QSTYLE)
-        lineno(f"answers: {answers}")
-
-        if not answers.get('repo_id'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
-            raise Exception(msg)
-
-        repo_id = int(answers.get('repo_id'))
-        selected_repository = [ls for ls in results if ls[0] == repo_id]
-        lineno(f"selected_repository: {selected_repository[0]}")
-
-        args.repository = selected_repository[0][1]
-        lineno(f"args.repository: {args.repository}")
-
-        args.username = selected_repository[0][2]
-        lineno(f"args.username: {args.username}")
+        args.repository = selected.repository
+        args.username = selected.username
 
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
-    # Everything OK, delete the repository
     print(f"[ {BWhi}INFO{RCol} ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
-    answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
-    if answer.lower() not in ['y', 'yes']:
-        print(f"[ {BWhi}INFO{RCol} ] Aborting... Nothing removed.")
-        return 0
+    ask_confirm("Are you SURE you want to do this??? This operation CANNOT be undone!!!")
+    ask_confirm_data(f"Enter the repository NAME as confirmation [{args.repository}]", args.repository)
 
-    answer = input(f"Enter the repository NAME as confirmation [{args.repository}]: ")
-    if not answer == args.repository:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered reponame '{answer}' is not the same as '{args.repository}'. Aborting..."
-        raise Exception(msg)
-
+    # DELETE the repo
     print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
-
     res = args.session.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
     lineno(f"res: {res}")
 
@@ -816,6 +756,8 @@ def remove_repo(args):
     return 0
 
 
+@traced
+@logged
 def remove_org(args):
     """Remove organization from gitea"""
     lineno(f"Removing oranization")
