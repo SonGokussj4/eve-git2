@@ -33,9 +33,7 @@ from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
-# Fore: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
-# Back: BLACK, RED, GREEN, YELLOW, BLUE, MAGENTA, CYAN, WHITE, RESET.
-# Style: DIM, NORMAL, BRIGHT, RESET_ALL
+
 
 # User Libs
 #===========
@@ -53,6 +51,9 @@ Gre, BGre = Fore.GREEN, f'{Fore.GREEN}{Style.BRIGHT}'
 Bla, BBla = Fore.BLACK, f'{Fore.BLACK}{Style.BRIGHT}'
 Whi, BWhi = Fore.WHITE, f'{Fore.WHITE}{Style.BRIGHT}'
 Yel, BYel = Fore.YELLOW, f'{Fore.YELLOW}{Style.BRIGHT}'
+Mag, BMag = Fore.MAGENTA, f'{Fore.MAGENTA}{Style.BRIGHT}'
+Cya, BCya = Fore.CYAN, f'{Fore.CYAN}{Style.BRIGHT}'
+
 
 
 # You have to run this script with python >= 3.7
