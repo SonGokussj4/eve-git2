@@ -636,65 +636,17 @@ def list_repo(args):
 @logged
 def clone_repo(args):
     """Clone repo into current directory."""
-    lineno(f"Cloning repo.")
+    lineno(f"Cloning repository.")
 
     if not args.username:
         lineno(f"User didn't specify <username>")
 
-        url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
-        lineno(f"url: {url}")
+        selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to clone: ")
+        lineno(f"selected.repository: {selected.repository}")
+        lineno(f"selected.username: {selected.username}")
 
-        res = args.session.get(url)
-        lineno(f"res: {res}")
-
-        data = json.loads(res.content)
-        lineno(f"data.get('ok'): {data.get('ok')}")
-
-        # Check if there was a good response
-        if not data.get('ok'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
-            raise Exception(msg)
-
-        if not data.get('data'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{args.repository}' returned 0 results... Try something different."
-            raise Exception(msg)
-
-        # Data acquired, list all found repos in nice table
-        tbl_headers = ('id', 'repository', 'user', 'description')
-        results = [[item['id'], item['name'], item['owner']['login'], item['description']]
-                   for item in data.get('data')]
-        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
-        # print(tbl)
-        tbl_as_string = str(tbl).split('\n')
-
-        # Ask for repo to clone
-        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
-        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
-        choices.append(Separator('\n'))
-
-        questions = [{
-            'type': 'list',
-            'choices': choices,
-            'pageSize': 50,
-            'name': 'repo_id',
-            'message': "Select repo to clone: ",
-        }]
-
-        answers = prompt(questions, style=QSTYLE)
-        lineno(f"answers: {answers}")
-        if not answers:
-            msg = f"{lineno(): >4}.[ {BWhi}INFO{RCol} ] User Canceled"
-            raise Exception(msg)
-
-        repo_id = int(answers.get('repo_id'))
-        selected_repository = [ls for ls in results if ls[0] == repo_id]
-        lineno(f"selected_repository: {selected_repository[0]}")
-
-        args.repository = selected_repository[0][1]
-        lineno(f"args.repository: {args.repository}")
-
-        args.username = selected_repository[0][2]
-        lineno(f"args.username: {args.username}")
+        args.repository = selected.repository
+        args.username = selected.username
 
     # Check if 'user' and combination of 'user/repo' exist
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
@@ -809,26 +761,32 @@ def remove_org(args):
 @logged
 def edit_desc(args):
     """Edit description in repo."""
-    lineno(f"Editing repo.")
+    lineno(f"Editing repository.")
 
     if not args.username:
         lineno(f"User didn't specify <username>")
 
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to edit: ")
-
         lineno(f"selected.repository: {selected.repository}")
         lineno(f"selected.username: {selected.username}")
         lineno(f"selected.description: {selected.description}")
 
-    check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
+        args.repository = selected.repository
+        args.username = selected.username
+        args.description = selected.description
+
+    check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+
+    repo = args.session.get(f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
+    args.description = repo.json().get('description')
 
     # Everything OK, edit the repository
-    print(f"[ {BWhi}INFO{RCol} ] Editing repository: '{SERVER}/{selected.username}/{selected.repository}'")
+    print(f"[ {BWhi}INFO{RCol} ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
 
     questions = [
         {
             'message': "Description:",
-            'default': selected.description,
+            'default': args.description,
             'name': 'description',
             'type': 'input',
             'validate': lambda answer: "Cannot be empty."
@@ -842,10 +800,10 @@ def edit_desc(args):
 
     lineno(f"answers: {answers}")
 
-    selected.description = answers.get('description')
-    repo_data = {'description': selected.description}
+    args.description = answers.get('description')
+    repo_data = {'description': args.description}
 
-    res = args.session.patch(url=f"{SERVER}/api/v1/repos/{selected.username}/{selected.repository}", json=repo_data)
+    res = args.session.patch(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", json=repo_data)
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
     if res.status_code == 403:
@@ -895,7 +853,3 @@ if __name__ == '__main__':
 
     # React on user inputted command/arguments
     args.func(args)
-    # try:
-    #     args.func(args)
-    # except Exception as e:
-    #     raise Exception(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] args.func(args) Exception bellow: \n{e}")
