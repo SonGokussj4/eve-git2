@@ -55,7 +55,6 @@ Mag, BMag = Fore.MAGENTA, f'{Fore.MAGENTA}{Style.BRIGHT}'
 Cya, BCya = Fore.CYAN, f'{Fore.CYAN}{Style.BRIGHT}'
 
 
-
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
     print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Hell NO! You're using Python2!! That's not cool man...")
@@ -258,14 +257,7 @@ def deploy(args):
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
             print(f"[ INFO ] Linking '{src_filepath}' --> '{dst_filepath}'")
-            # make_symbolic_link(src_filepath, dst_filepath)
-            if os.name != 'nt':
-                cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
-            else:
-                cmd = f'cmd /c "mklink {link_dst} {link_src}"'
-                # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''  # powershell
-            lineno(f"cmd: '{cmd}'")
-            os.system(cmd)
+            make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
 
     # Case repo.config file was not found in project
     else:
