@@ -484,24 +484,24 @@ def create_repo(args):
     questions = [
         {
             'message': "Repository name:",
-            'default': args.reponame,
             'name': 'reponame',
+            'default': args.reponame,
             'type': 'input',
             'validate': lambda answer: "Cannot be empty."
             if not answer else True
         },
         {
             'message': "Description:",
-            'default': args.description,
             'name': 'description',
+            'default': args.description,
             'type': 'input',
             'validate': lambda answer: "Cannot be empty."
             if not answer else True
         },
         {
             'message': "User/Org:",
-            'default': args.username,
             'name': 'username',
+            'default': args.username,
             'type': 'input',
             'validate': lambda answer: "Cannot be empty."
             if not answer else True
@@ -509,6 +509,10 @@ def create_repo(args):
     ]
 
     answers = prompt(questions, style=QSTYLE)
+    if not answers:
+        raise SystemExit
+
+    lineno(f"answers: {answers}")
 
     args.reponame = answers.get('reponame')
     args.description = answers.get('description')
@@ -528,11 +532,15 @@ def create_repo(args):
     }
     lineno(f"repo_data: {repo_data}")
 
-    # User specified different user/org. Only users with admin right can create repos anywhere
-    url = f"{SERVER}/api/v1/user/repos"
-    if args.username != getpass.getuser():
+
+    if args.username == getpass.getuser():
+        # Creating new repo as normal user
+        url = f"{SERVER}/api/v1/user/repos"
+    else:
+        # User specified different user/org. Only users with admin right can create repos anywhere
         lineno(f"args.username: {args.username}")
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
+
     lineno(f"url: {url}")
 
     # Post the repo
@@ -545,12 +553,12 @@ def create_repo(args):
         raise Exception(msg)
 
     elif res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
         raise Exception(msg)
 
     elif res.status_code == 422:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
-        msg += f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        msg += f"\n{res.json()}"
         raise Exception(msg)
 
     elif res.status_code != 201:
@@ -561,10 +569,11 @@ def create_repo(args):
 
     answer = input("Clone into current folder? [Y/n]: ")
     if answer.lower() in ['y', 'yes']:
-        Repo.clone_from(url=f"{SERVER}/{args.username}/{args.reponame}",
-                        to_path=Path(CURDIR.resolve() / args.reponame).resolve(),
-                        branch='master',
-                        progress=Progress())
+        target_path = Path(CURDIR.resolve() / args.reponame).resolve()
+        url = f"{SERVER}/{args.username}/{args.reponame}"
+        lineno(f"target_path: {target_path}")
+        lineno(f"url: {url}")
+        Repo.clone_from(url=url, to_path=target_path, branch='master', progress=Progress())
 
     print(f"[ {BWhi}INFO{RCol} ] DONE")
     return 0
