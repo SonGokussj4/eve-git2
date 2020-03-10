@@ -339,7 +339,11 @@ def deploy(args):
 
 
 def connect_here(args):
-    print("hi there")
+    print(f"[ {BWhi}INFO{RCol}  ] Connecting...")
+    if not is_git_repo(CURDIR):
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Current location is not git repository: '{CURDIR.resolve()}'"
+        raise Exception(msg)
+
     url = f"{SERVER}/api/v1/repos/search?q={args.repository}&sort=created&order=desc"
     lineno(f"url: {url}")
 
@@ -363,9 +367,7 @@ def connect_here(args):
     results = [[item['id'], item['name'], item['owner']['login'], item['description']]
                for item in data.get('data')]
     tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
-    # print(tbl)
     tbl_as_string = str(tbl).split('\n')
-    # print(tbl_as_string)
 
     # Ask for repo to connect
     choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
@@ -373,11 +375,11 @@ def connect_here(args):
     choices.append(Separator('\n'))
 
     questions = [{
+        'message': "Select repo to remove: ",
+        'name': 'repo_id',
         'type': 'list',
         'choices': choices,
         'pageSize': 50,
-        'name': 'repo_id',
-        'message': "Select repo to remove: ",
     }]
 
     answers = prompt(questions, style=QSTYLE)

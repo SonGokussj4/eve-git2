@@ -2,6 +2,7 @@
 
 import os
 import sys
+import git
 import shutil
 import filecmp
 import requests
@@ -117,3 +118,11 @@ def check_user_repo_exist(SERVER: str, args):
 #     cmd = f'ssh {SKRIPTY_SERVER} "ln -fs {src_filepath} {dst_filepath}"'
 #     lineno(f"cmd: '{cmd}'")
 #     os.system(cmd)
+
+
+def is_git_repo(path):
+    try:
+        _ = git.Repo(path).git_dir
+        return True
+    except git.exc.InvalidGitRepositoryError:
+        return False
