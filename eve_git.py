@@ -134,7 +134,7 @@ def init_logging(args):
     logging.basicConfig(
         level=log_level, stream=sys.stderr,
         # format="[ %(levelname)s ] :%(filename)s,%(lineno)d:%(name)s.%(funcName)s:%(message)s")
-        format="[ %(levelname)s ] %(funcName)s: %(message)s")
+        format="{: >4}.[ %(levelname)s ] %(funcName)s: %(message)s".format(lineno()))
 
 
 def init_session(args):
@@ -365,7 +365,7 @@ def connect_here(args):
     tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
     # print(tbl)
     tbl_as_string = str(tbl).split('\n')
-    print(tbl_as_string)
+    # print(tbl_as_string)
 
     # Ask for repo to connect
     choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
@@ -382,10 +382,8 @@ def connect_here(args):
 
     answers = prompt(questions, style=QSTYLE)
     lineno(f"answers: {answers}")
-
-    if not answers.get('repo_id'):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
-        raise Exception(msg)
+    if not answers:
+        raise SystemExit
 
     repo_id = int(answers.get('repo_id'))
     selected_repository = [ls for ls in results if ls[0] == repo_id]
@@ -400,15 +398,26 @@ def connect_here(args):
     check_user_repo_exist(SERVER, args)
 
     # Everything OK, delete the repository
-    print(f"[ {BWhi}INFO{RCol} ] You are about to CONNECT repository: '{SERVER}/{args.username}/{args.repository}'")
-
     print(f"[ {BWhi}INFO{RCol} ] Connecting '{SERVER}/{args.username}/{args.repository}'")
 
-    cmd = f"git remote add {args.remote_name} {SERVER}/{args.username}/{args.repository}"
-    lineno(f"cmd: {cmd}")
-
-    os.system(cmd)
+    repo = Repo(CURDIR)
+    for remote in repo.remotes:
+        if remote.name == 'gitea':
+            print(f"[ {Yel}WARNING{RCol} ] 'Gitea' remote already exists: {remote.url}")
+            questions = [
+                {
+                    'message': 'Do you want to rewrite the url?',
+                    'name': 'continue',
+                    'type': 'confirm',
+                }
+            ]
+            answers = prompt(questions, style=QSTYLE)
+            if not answers:
+                raise SystemExit
+            if answers.get('continue'):
+                remote.set_url(f'{SERVER}/{args.username}/{args.repository}')
     return 0
+
 
 @traced
 @logged
