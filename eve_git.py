@@ -356,26 +356,41 @@ def connect_here(args):
 
     check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
 
-    # Everything OK, delete the repository
-    print(f"[ {BWhi}INFO{RCol} ] Connecting '{SERVER}/{selected.username}/{selected.repository}'")
+    new_url = f'{SERVER}/{selected.username}/{selected.repository}'
+    print(f"[ {BWhi}INFO{RCol} ] Connecting '{new_url}'")
 
     repo = Repo(CURDIR)
+
+    # Case repo is missing remote, add 'gitea'
+    if len(repo.remotes) == 0:
+        repo.create_remote('gitea', new_url)
+        print(f"[ {BWhi}DONE{RCol} ] Done (Created new 'gitea' remote)")
+        return
+
+    # Case repo has already some remotes. Go through them, if any 'gitea', ask for rewrite. Add otherwise.
     for remote in repo.remotes:
-        if remote.name == 'gitea':
-            print(f"[ {Yel}WARNING{RCol} ] 'Gitea' remote already exists: {remote.url}")
-            questions = [
-                {
-                    'message': 'Do you want to rewrite the url?',
-                    'name': 'continue',
-                    'type': 'confirm',
-                }
-            ]
-            answers = prompt(questions, style=QSTYLE)
-            if not answers:
-                raise SystemExit
-            if answers.get('continue'):
-                remote.set_url(f'{SERVER}/{selected.username}/{selected.repository}')
-    return 0
+        if remote.name != 'gitea':
+            continue
+        print(f"[ {Yel}WARNING{RCol} ] 'Gitea' remote already exists: {remote.url}")
+        questions = [
+            {
+                'message': 'Do you want to rewrite the url?',
+                'name': 'continue',
+                'type': 'confirm',
+            }
+        ]
+        answers = prompt(questions, style=QSTYLE)
+        if not answers:
+            raise SystemExit
+        if answers.get('continue'):
+            remote.set_url(f'{new_url}')
+            print(f"[ {BWhi}DONE{RCol} ] Done (Modified existing 'gitea' remote)")
+            return
+
+    lineno(f"Neither of the repositories was named 'gitea', adding a new one.")
+    repo.create_remote('gitea', new_url)
+    print(f"[ {BWhi}DONE{RCol} ] Done (Added new 'gitea' remote)")
+    return
 
 
 @traced
