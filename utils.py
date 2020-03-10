@@ -199,15 +199,17 @@ def is_git_repo(path):
         return False
 
 
-def get_repo_list_as_table(session, server, repository):
+def get_repo_list_as_table(session: requests.Session(), server: str, repository: str, username: str=''):
     """Return columnar() table object with list of repositories using gitea api.
 
-    Sorted by 'created' descending.
+    Sorted by: 'created' descending.
+    Limit: 50 items
 
     Arguments:
         - session: requests.Session() object with updated headers with GITEA_TOKEN
         - server, repository ... used in url:
             - url = {server}/api/v1/repos/search?q={repository}&sort=created&order=desc
+        - Optional 'username', when entered, filter through 'USER' column
 
     Example:
         REPOSITORY      USER     DESCRIPTION
@@ -217,7 +219,7 @@ def get_repo_list_as_table(session, server, repository):
         eve-git2        C2       Updated version of eve-git working with Gitea
         alic_stats      ptinka   Staty pro alici
     """
-    url: str = f"{server}/api/v1/repos/search?q={repository}&sort=created&order=desc"
+    url: str = f"{server}/api/v1/repos/search?q={repository}&sort=created&order=desc&limit=50"
     data = session.get(url).json()
     lineno(f"data.get('ok'): {data.get('ok')}")
 
@@ -232,13 +234,30 @@ def get_repo_list_as_table(session, server, repository):
 
     # Data acquired, list all found repos in nice table
     tbl_headers = ('repository', 'user', 'description')
-    results = [
-        [
-            item['name'],
-            item['owner']['login'],
-            item['description']
-        ]
-        for item in data.get('data')]
+
+    results = []
+    if username:
+        results = [
+            [
+                item['name'],
+                item['owner']['login'],
+                item['description']
+            ]
+            for item in data.get('data')
+            if username.lower() in item['owner']['login'].lower()]
+
+        if len(results) == 0:
+            print(f"[ {Yel}WARNING{RCol} ] No repository with += username: '{username}' found. "
+                  f"Listing for all users.")
+
+    if len(results) == 0 or not username:
+        results = [
+            [
+                item['name'],
+                item['owner']['login'],
+                item['description']
+            ]
+            for item in data.get('data')]
 
     return columnar(results, tbl_headers, no_borders=True, wrap_max=0)
 
