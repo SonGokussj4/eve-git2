@@ -6,6 +6,7 @@ import git
 import shutil
 import filecmp
 import requests
+import configparser
 # from collections import namedtuple
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +14,18 @@ from columnar import columnar
 from colorama import Style, Fore
 from autologging import logged, traced
 from PyInquirer import style_from_dict, Token, prompt, Separator
+
+
+# ==============================
+# =           CONFIG           =
+# ==============================
+SCRIPTDIR = Path(__file__).resolve().parent
+CURDIR = Path('.')
+SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
+SETTINGS_FILENAME = 'eve-git.settings'
+cfg = configparser.ConfigParser(allow_no_value=True)
+cfg.read([folder / SETTINGS_FILENAME for folder in SETTINGS_DIRS])
+DEBUG = cfg['app'].getboolean('debug')
 
 
 # ===============================
@@ -99,6 +112,8 @@ def remove_dir_tree(dirpath):
 def lineno(msg: str=None):
     if not msg:
         return sys._getframe().f_back.f_lineno
+    if not DEBUG:
+        return
     print(f"{sys._getframe().f_back.f_lineno: >4}.[ {BBla}DEBUG{RCol} ]: "
           f"{msg if msg is not None else ''}")
 

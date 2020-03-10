@@ -16,7 +16,7 @@ import json
 # import shutil
 import getpass
 import logging
-import fileinput
+# import fileinput
 import configparser
 # import subprocess as sp
 from pathlib import Path
@@ -119,8 +119,6 @@ from progress import Progress
 # =================================
 # =           FUNCTIONS           =
 # =================================
-
-
 def init_logging(args):
     log_level = logging.WARNING
     if args.v:
@@ -811,9 +809,9 @@ if __name__ == '__main__':
     # Initialize session with headers containing GITEA_TOKEN
     args.session = init_session(args)
 
-    print("--------------------------------------------------------------------------------")
+    lineno("--------------------------------------------------------------------------------")
     lineno(f"args: {args}")
-    print("--------------------------------------------------------------------------------")
+    lineno("--------------------------------------------------------------------------------")
 
     # In case of no input, show help
     # if not any(vars(args).values()):
