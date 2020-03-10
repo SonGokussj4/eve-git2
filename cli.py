@@ -157,7 +157,7 @@ Description:
     # DEPLOY
     parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', nargs='?', default=getpass.getuser(), help='Help for <username>')
+    parser_deploy.add_argument('username', nargs='?', help='Help for <username>')
     parser_deploy.add_argument('branch', nargs='?', default='master', help='Help for <branch>')
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)

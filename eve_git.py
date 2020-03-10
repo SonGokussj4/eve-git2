@@ -155,7 +155,19 @@ def deploy(args):
     lineno(f"args.username: {args.username}")
     lineno(f"args.branch: {args.branch}")
 
+    selected = select_repo_from_list(args.session, SERVER, args.repository, args.username,
+                                     'Select repository to deploy')
+
+    args.repository = selected.repository
+    args.username = selected.username
+
+    url = f"{SERVER}/{args.username}/{args.repository}"
+    lineno(f"url: {url}")
+
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+    if not remote_repo_branch_exist(url=url, branch=args.branch):
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Remote branch [{BRed}{args.branch}{RCol}] does not exist.'"
+        raise Exception(msg)
 
     # Local and Remove directory
     tmp_dir = Path('/tmp') / args.repository
@@ -168,13 +180,11 @@ def deploy(args):
         lineno(f"removed: {removed}")
 
     print(f"[ INFO ] Clonning to '{tmp_dir}'...")
-    url = f"{SERVER}/{args.username}/{args.repository}"
-    lineno(f"url: {url}")
 
     tmp_repo = Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
 
     # Remove .git folder in /tmp repo
-    print(f"[ {BWhi}INFO{RCol} ] Removing '.git' folder")
+    print(f"[ INFO ] Removing '.git' folder")
     lineno(f"Removing '{tmp_repo.git_dir}'")
     remove_dir_tree(tmp_repo.git_dir)
 
@@ -275,6 +285,9 @@ def deploy(args):
     # Rsync all the data
     lineno(f"ignore_venv: '{ignore_venv}'")
 
+    print(f"[ INFO ] Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    ask_confirm(f"Are you SURE?")
+
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
         if os.name != 'nt':
@@ -318,7 +331,7 @@ def connect_here(args):
     check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
 
     new_url = f'{SERVER}/{selected.username}/{selected.repository}'
-    print(f"[ {BWhi}INFO{RCol} ] Connecting '{new_url}'")
+    print(f"[ INFO ] Connecting '{new_url}'")
 
     repo = Repo(CURDIR)
 
@@ -537,7 +550,7 @@ def create_repo(args):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. Status_code: {res.status_code}"
         raise Exception(msg)
 
-    print(f"[ {BWhi}INFO{RCol} ] Repository created.")
+    print(f"[ INFO ] Repository created.")
 
     answer = input("Clone into current folder? [Y/n]: ")
     if answer.lower() in ['y', 'yes']:
@@ -547,7 +560,7 @@ def create_repo(args):
         lineno(f"url: {url}")
         Repo.clone_from(url=url, to_path=target_path, branch='master', progress=Progress())
 
-    print(f"[ {BWhi}INFO{RCol} ] DONE")
+    print(f"[ INFO ] DONE")
     return 0
 
 
@@ -599,7 +612,7 @@ def clone_repo(args):
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
     # Everything OK, clone the repository
-    print(f"[ {BWhi}INFO{RCol} ] Cloning '{SERVER}/{args.username}/{args.repository}'")
+    print(f"[ INFO ] Cloning '{SERVER}/{args.username}/{args.repository}'")
 
     target_dir = CURDIR / args.repository
     if target_dir.exists():
@@ -613,7 +626,7 @@ def clone_repo(args):
         progress=Progress())
     print(f"[ {BBla}DEBUG{RCol} ] repo: {repo}")
 
-    print(f"[ {BWhi}INFO{RCol} ] DONE")
+    print(f"[ INFO ] DONE")
 
 
 @traced
@@ -631,12 +644,12 @@ def remove_repo(args):
 
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
-    print(f"[ {BWhi}INFO{RCol} ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
+    print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
     ask_confirm("Are you SURE you want to do this??? This operation CANNOT be undone!!!")
     ask_confirm_data(f"Enter the repository NAME as confirmation [{args.repository}]", args.repository)
 
     # DELETE the repo
-    print(f"[ {BWhi}INFO{RCol} ] Removing '{SERVER}/{args.username}/{args.repository}'")
+    print(f"[ INFO ] Removing '{SERVER}/{args.username}/{args.repository}'")
     res = args.session.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
     lineno(f"res: {res}")
 
@@ -650,7 +663,7 @@ def remove_repo(args):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository..."
         raise Exception(msg)
 
-    print(f"[ {BWhi}INFO{RCol} ] DONE")
+    print(f"[ INFO ] DONE")
 
     return 0
 
@@ -732,7 +745,7 @@ def edit_desc(args):
     args.description = repo.json().get('description')
 
     # Everything OK, edit the repository
-    print(f"[ {BWhi}INFO{RCol} ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
+    print(f"[ INFO ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
 
     questions = [
         {
@@ -771,7 +784,7 @@ def edit_desc(args):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}"
         raise Exception(msg)
 
-    print(f"[ {BWhi}INFO{RCol} ] DONE")
+    print(f"[ INFO ] DONE")
 
     return 0
 

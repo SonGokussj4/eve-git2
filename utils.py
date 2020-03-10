@@ -138,6 +138,25 @@ def requirements_similar(src_requirements: str, dst_requirements: str) -> bool:
     return filecmp.cmp(src_requirements, dst_requirements)
 
 
+def lsremote(url):
+    """Get references ('HEAD', 'refs/heads/<branch>') from remote <url> repo."""
+    remote_refs = {}
+    g = git.cmd.Git()
+    for ref in g.ls_remote(url).split('\n'):
+        hash_ref_list = ref.split('\t')
+        remote_refs[hash_ref_list[1]] = hash_ref_list[0]
+    return remote_refs
+
+
+def remote_repo_branch_exist(url: str, branch: str) -> bool:
+    """Return True if <branch> of remote <url> repository exists."""
+    refs = lsremote(url)
+    ref = refs.get(f'refs/heads/{branch}', None)
+    if ref:
+        return True
+    return False
+
+
 def check_user_repo_exist(server: str, repository: str, username: str, session) -> bool:
     """Return True if both 'user' and combination gitea 'user/repo' exists.
 
@@ -206,7 +225,7 @@ def check_org_exist(server: str, organization: str, session) -> bool:
 #     os.system(cmd)
 
 
-def is_git_repo(path):
+def is_git_repo(path: any) -> bool:
     """Return True if 'path' is git repository, False otherwise."""
     try:
         _ = git.Repo(path).git_dir
@@ -215,7 +234,8 @@ def is_git_repo(path):
         return False
 
 
-def get_repo_list_as_table(session: requests.Session(), server: str, repository: str, username: str=''):
+def get_repo_list_as_table(session: requests.Session(), server: str,
+                           repository: str, username: str='') -> columnar:
     """Return columnar() table object with list of repositories using gitea api.
 
     Sorted by: 'created' descending.
@@ -278,8 +298,12 @@ def get_repo_list_as_table(session: requests.Session(), server: str, repository:
     return columnar(results, tbl_headers, no_borders=True, wrap_max=0)
 
 
-def select_repo_from_list(session, server, repository, question):
-    """Make columnar() table selectable, return Selected('repository', 'username', 'description') object.
+def select_repo_from_list(session: str, server: str, repository: str,
+                          username: str = '', question: str = '') -> Selected:
+    """Make columnar() table selectable, return Selected().
+
+    Return:
+        - Selected('repository', 'username', 'description') object.
 
     Arguments:
         - session: requests.Session() object with updated headers with GITEA_TOKEN
@@ -299,7 +323,7 @@ def select_repo_from_list(session, server, repository, question):
         >>> <enter>
         Selected(repository='CMM', username='ptinka', description='Tool to ...')
     """
-    tbl = get_repo_list_as_table(session, server, repository)
+    tbl = get_repo_list_as_table(session, server, repository, username)
 
     tbl_as_string = tbl.split('\n')
     table_header, table_body = tbl_as_string[1], tbl_as_string[3:-1]
