@@ -148,8 +148,6 @@ def init_session(args):
     return session
 
 
-
-
 @traced
 @logged
 def deploy(args):
@@ -432,8 +430,7 @@ def create_org(args):
 
     answers = prompt(questions, style=QSTYLE)
     if not answers:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User canceled."
-        raise Exception(msg)
+        raise SystemExit
 
     args.organization = answers.get('organization')
     args.description = answers.get('description')
@@ -583,41 +580,12 @@ def transfer_repo():
 @logged
 def list_org(args):
     """Function for listing organizations."""
-    print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] Listing organizations")
+    lineno(f"Listing organizations")
 
-    url = f"{SERVER}/api/v1/admin/orgs"
-    print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] url: '{url}'")
-
-    res = args.session.get(url)
-    if res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
-        raise Exception(msg)
-
-    elif res.status_code == 404:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] 404 - url page not found: '{url}'"
-        raise Exception(msg)
-
-    elif res.status_code == 200:
-        print(f"[{lineno()}] {lineno(): >4}.[ {BBla}DEBUG{RCol} ] All ok. Here is the list.")
-        data = json.loads(res.content)
-
-    else:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error"
-        raise Exception(msg)
-
-    # Data acquired, list all found repos in nice table
-    headers = ('Organization', 'Num Repos', 'description')
-    results = [
-        [
-            item['username'],
-            len(args.session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()),
-            item['description']
-        ]
-        for item in data]
-    tbl = columnar(results, headers, no_borders=True)
+    tbl = get_org_list_as_table(args.session, SERVER)
     print(tbl)
 
-    return 0
+    return
 
 
 @traced
@@ -850,92 +818,25 @@ def remove_repo(args):
 
 def remove_org(args):
     """Remove organization from gitea"""
-    lineno(f"Removing org.")
+    lineno(f"Removing oranization")
 
-    if not args.organization:
+    org_found = check_org_exist(server=SERVER, organization=args.organization, session=args.session)
+    lineno(f"org_found: {org_found}")
+
+    if not org_found:
         lineno(f"User didn't specify <organization>")
 
-        # Get all organizations
-        res = args.session.get(f"{SERVER}/api/v1/admin/orgs")
-        lineno(f"res: {res}")
+        selected = select_org_from_list(session=args.session, server=SERVER, question="Select org to remove: ")
+        lineno(f"selected.organization: {selected.organization}")
 
-        data = json.loads(res.content)
-        if not data:
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for organizations returned 0 results... Try something different."
-            raise Exception(msg)
+        args.organization = selected.organization
 
-        tbl_headers = ['id', 'org', 'num repos', 'description']
-        results = [
-            [
-                item['id'],
-                item['username'],
-                len(args.session.get(f"{SERVER}/api/v1/orgs/{item['username']}/repos").json()),
-                item['description']
-            ]
-            for item in data
-        ]
-        tbl = columnar(results, tbl_headers, no_borders=True, wrap_max=0)
-        # print(tbl)
-        tbl_as_string = str(tbl).split('\n')
-
-        # Ask for repo to remove
-        choices = [Separator(f"\n   {tbl_as_string[1]}\n")]
-        choices.extend([{'name': item, 'value': item.split()[0]} for item in tbl_as_string[3:-1]])
-        choices.append(Separator('\n'))
-
-        questions = [{
-            'type': 'list',
-            'choices': choices,
-            'pageSize': 50,
-            'name': 'org_id',
-            'message': "Select org to remove: ",
-        }]
-
-        answers = prompt(questions, style=QSTYLE)
-        lineno(f"answers: {answers}")
-
-        if not answers.get('org_id'):
-            msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] You have to select an ID"
-            raise Exception(msg)
-
-        org_id = int(answers.get('org_id'))
-        selected_org = [ls for ls in results if ls[0] == org_id]
-        lineno(f"selected_org: {selected_org[0]}")
-
-        args.organization = selected_org[0][1]
-        lineno(f"args.organization: {args.organization}")
-
-    # Get the org
-    url = f"{SERVER}/api/v1/orgs/{args.organization}"
-    lineno(f"url: {url}")
-
-    res = args.session.get(url)
-    lineno(f"res.status_code: {res.status_code}")
-
-    data = json.loads(res.content)
-
-    # Case org does not exist
-    if res.status_code == 404:
-        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Organization '{args.organization}' not found...")
-        args.organization = None
-        remove_org(args)
-
-    elif res.status_code != 200:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for organization: '{args.organization}'"
-        raise Exception(msg)
-
-    # Everything OK, delete the repository
+    # Everything OK, delete the organization
     print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{args.organization}'")
-    answer = input(f"Are you SURE you want to do this??? This operation CANNOT be undone [y/N]: ")
 
-    if answer.lower() not in ['y', 'yes']:
-        print(f"[ INFO ] Aborting... Nothing removed.")
-        return 0
-
-    answer = input(f"Enter the organization NAME as confirmation [{args.organization}]: ")
-    if not answer == args.organization:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Entered orgname '{answer}' is not the same as '{args.organization}'. Aborting..."
-        raise Exception(msg)
+    ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
+    ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
+                     comp_str=args.organization)
 
     print(f"[ INFO ] Deleting organization '{args.organization}'")
 
