@@ -807,9 +807,12 @@ def update_token(args):
     else:
         lineno(f"Updating value: 'config[server] = {{gitea_token = {args.update_token}}}'")
         config.read(settings_file)
+        old_val = config['server']['gitea_token']
         config['server'] = {'gitea_token': args.update_token}
 
+    ask_confirm(f"Are you sure you want to replace '{old_val}' with '{args.update_token}'?")
     lineno(f"Writing config into: {settings_file.resolve()}")
+
     with open(settings_file, 'w') as f:
         config.write(f)
 
