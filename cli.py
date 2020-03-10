@@ -1,10 +1,10 @@
 """Command Line Interface (CLI) Class"""
 
 import argparse
-import utils
+# import utils
 import eve_git
 import getpass
-# from eve_git import RCol, BWhi
+from colorama import Style, Fore
 
 
 # =================================
@@ -16,9 +16,23 @@ __date__ = "2020-02-07"
 __version__ = "v0.0.0"
 
 
+# ==============================
+# =           COLORS           =
+# ==============================
+RCol = Style.RESET_ALL
+Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
+
+
 # ===============================
 # =           CLASSES           =
 # ===============================
+class MyParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_help()
+        print(f"\n[ {BRed}ERROR{RCol} ] Err message bellow. Please read usage above.")
+        raise SystemExit(f"[ {BRed}ERROR{RCol} ] {message}")
+
+
 class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter):
     """ArgParse custom formatter that has LONGER LINES and RAW DescriptionHelp formatting, shows default values."""
 
@@ -65,10 +79,13 @@ def get_parser():
 #     # common.add_argument('--details', dest='details', action='store_true',
 #     #                     help="Optional... Show details when listing repos/orgs")
 
-    parser = argparse.ArgumentParser(parents=[common])
-    subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
-    parser.formatter_class = CustomHelpFormatter
+    # parser = argparse.ArgumentParser(parents=[common])
+    parser = MyParser(parents=[common])
+    parser.add_argument('--update-token', default=None,
+                        # type=argparse.FileType('w', encoding='UTF-8'),
+                        help='Add or Update your GITEA_TOKEN')
 
+    parser.formatter_class = CustomHelpFormatter
     parser.version = __version__
     parser.description = """
 Description:
@@ -80,6 +97,7 @@ Description:
     # ==================================
     # =           SUBPARSERS           =
     # ==================================
+    subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
     # CLONE
     parser_clone = subparsers.add_parser('clone', help='Clone one thing!!!', parents=[common])
@@ -162,19 +180,17 @@ Description:
     return parser
 
 
-def required_length(nmin, nmax):
-    class RequiredLength(argparse.Action):
-        def __call__(self, parser, args, values, option_string=None):
-            if not nmin <= len(values) <= nmax:
-                msg = f'argument "{self.dest}" requires between {nmin} and {nmax} arguments'
-                raise argparse.ArgumentTypeError(msg)
-            setattr(args, self.dest, values)
-            # If user writes just: 'eve-git --create', return 'empty' string as argument
-            if nmin == 0 and len(values) == 0:
-                setattr(args, self.dest, 'empty')
-    return RequiredLength
-
-
+# def required_length(nmin, nmax):
+#     class RequiredLength(argparse.Action):
+#         def __call__(self, parser, args, values, option_string=None):
+#             if not nmin <= len(values) <= nmax:
+#                 msg = f'argument "{self.dest}" requires between {nmin} and {nmax} arguments'
+#                 raise argparse.ArgumentTypeError(msg)
+#             setattr(args, self.dest, values)
+#             # If user writes just: 'eve-git --create', return 'empty' string as argument
+#             if nmin == 0 and len(values) == 0:
+#                 setattr(args, self.dest, 'empty')
+#     return RequiredLength
 
 
 # class VerboseStore(argparse.Action):

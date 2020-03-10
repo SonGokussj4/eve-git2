@@ -490,13 +490,16 @@ def create_repo(args):
     lineno(f"args.username: {args.username}")
 
     repo_data = {
-        'auto_init': True,
-        'name': args.reponame,
-        'readme': 'Default',
-        'description': args.description,
-        # 'gitignores': 'Evektor',
-        'private': False
+        "name": args.reponame,
+        "description": args.description,
+        "auto_init": True,
+        "private": False,
+        # "gitignores": 'Evektor',
+        # "issue_labels": "string",
+        # "license": "string",
+        # "readme": "string"
     }
+
     lineno(f"repo_data: {repo_data}")
 
 
@@ -505,7 +508,7 @@ def create_repo(args):
         url = f"{SERVER}/api/v1/user/repos"
     else:
         # User specified different user/org. Only users with admin right can create repos anywhere
-        lineno(f"args.username: {args.username}")
+        lineno(f"Using admin args.username: {args.username}")
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
 
     lineno(f"url: {url}")
@@ -515,12 +518,16 @@ def create_repo(args):
     lineno(f"res: {res}")
 
     # Viable responses
-    if res.status_code == 409:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
+    if res.status_code == 401:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
         raise Exception(msg)
 
-    elif res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
+    elif res.status_code == 403:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}. Something wrong with GITEA_TOKEN. Using admin-command with non-admin token?"
+        raise Exception(msg)
+
+    elif res.status_code == 409:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
         raise Exception(msg)
 
     elif res.status_code == 422:
@@ -686,6 +693,10 @@ def remove_org(args):
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository."
         raise Exception(msg)
 
+    elif res.status_code == 403:
+        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}. Can't remove organization that is not mine. Or other unknown problem."
+        raise Exception(msg)
+
     elif res.status_code == 500:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] This organization still owns one or more repositories; delete or transfer them first."
         raise Exception(msg)
@@ -744,7 +755,6 @@ def edit_desc(args):
 
     args.description = answers.get('description')
     repo_data = {'description': args.description}
-
     res = args.session.patch(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}", json=repo_data)
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
@@ -759,6 +769,7 @@ def edit_desc(args):
 
     # Other cases should not come
     if res.status_code != 200:
+        lineno(f"args.session.headers: {args.session.headers}")
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}"
         raise Exception(msg)
 
@@ -767,11 +778,30 @@ def edit_desc(args):
     return 0
 
 
+def update_token(args):
+    """Update GITEA_TOKEN in $HOME/eve-git.settings config file."""
+    settings_file = Path.home() / 'eve-git.settings'
+    # Don't know how to save the config back with comments too...
+    config = configparser.ConfigParser()
+
+    if not settings_file.exists():
+        lineno(f"Creating new config with: {args.update_token}")
+        config['server'] = {'gitea_token': args.update_token}
+        config['app'] = {'debug': True}
+    else:
+        lineno(f"Updating value: 'config[server] = {{gitea_token = {args.update_token}}}'")
+        config.read(settings_file)
+        config['server'] = {'gitea_token': args.update_token}
+
+    lineno(f"Writing config into: {settings_file.resolve()}")
+    with open(settings_file, 'w') as f:
+        config.write(f)
+
+
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
 if __name__ == '__main__':
-
     parser = cli.get_parser()
     args = parser.parse_args()
 
@@ -792,6 +822,11 @@ if __name__ == '__main__':
         print()
         parser.print_help()
         sys.exit()
+
+    if args.update_token:
+        print("DEBUG: args.update_token:", args.update_token)
+        update_token(args)
+        raise SystemExit
 
     # React on user inputted command/arguments
     args.func(args)
