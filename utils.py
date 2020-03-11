@@ -214,18 +214,19 @@ def check_org_exist(server: str, organization: str, session) -> bool:
 
     return True
 
+
 def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str = ''):
     if type(src_filepath) == 'str':
         src_filepath = Path(src_filepath)
     if type(dst_filepath) == 'str':
         dst_filepath = Path(dst_filepath)
 
-   if os.name != 'nt':
-       cmd = f'ssh {remote_server} "ln -fs {src_filepath} {dst_filepath}"'
-   else:
-       cmd = f'cmd /c "mklink {dst_filepath} {src_filepath}"'
-       # powershell
-       # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''
+    if os.name != 'nt':
+        cmd = f'ssh {remote_server} "ln -fs {src_filepath} {dst_filepath}"'
+    else:
+        cmd = f'cmd /c "mklink {dst_filepath} {src_filepath}"'
+        # powershell
+        # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''
     lineno(f"cmd: '{cmd}'")
     os.system(cmd)
     return True
