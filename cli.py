@@ -81,10 +81,10 @@ def get_parser():
 
     # parser = argparse.ArgumentParser(parents=[common])
     parser = MyParser(parents=[common])
-    parser.add_argument('--update-token', default=None,
-                        # type=argparse.FileType('w', encoding='UTF-8'),
-                        help='Add or Update your GITEA_TOKEN')
 
+    # ===================================
+    # =           MAIN PARSER           =
+    # ===================================
     parser.formatter_class = CustomHelpFormatter
     parser.version = __version__
     parser.description = """
@@ -92,11 +92,13 @@ Description:
    <Ideally one line description of the program>
 
 """
-    # https://pymotw.com/2/argparse/#nesting-parsers
+    # OPTIONS
+    parser.add_argument('--token', default=None, help='Add or Update your GITEA_TOKEN')
 
     # ==================================
     # =           SUBPARSERS           =
     # ==================================
+    # https://pymotw.com/2/argparse/#nesting-parsers
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
     # CLONE
