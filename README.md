@@ -69,6 +69,12 @@ python.exe eve_git.py
 
 # More verbal (individual files)
 .env/bin/pytest -v
+
+# Running only those tests which has 'custom' mark
+@pytest.mark.custom
+def test_fn():
+.env/bin/pytest -m custom
+
 ```
 
 ## Coverage
