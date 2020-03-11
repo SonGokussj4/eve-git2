@@ -14,7 +14,7 @@ pluggy==0.13.1
 prompt-toolkit==1.0.14
 py==1.8.1
 Pygments==2.6.1
-PyInquirer==1.0.3
+-e git://github.com/CITGuru/PyInquirer.git@ec824350d832c675d91bde0016f5fa648b5f811b#egg=PyInquirer
 pyparsing==2.4.6
 pytest==5.3.5
 regex==2020.2.20
