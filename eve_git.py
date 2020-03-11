@@ -316,7 +316,7 @@ def deploy(args):
     # Case venv wasn't created locally, ignore venv folders so that they will not be deleted in target_dir
     else:
         if os.name != 'nt':
-            cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
+            cmd = (f'rsync -ah --delete --exclude-from={tmp_dir}/rsync-directory-exclusions.txt '
                    f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
         else:
             cmd = f'xcopy /S /I /E /Y {tmp_dir} {target_dir.parent} /EXCLUDE:rsync-directory-exclusions.txt'
