@@ -180,6 +180,11 @@ Description:
     parser_template.formatter_class = CustomHelpFormatter
     parser_template.set_defaults(func=eve_git.templates)
 
+    # SUB-TEMPLATE?
+    sub_template = parser_template.add_subparsers(title='commands', dest='command', metavar="<command>")
+    sub_template_dev = sub_template.add_parser('dev', parents=[common], help='Clone selected repo into current folder')
+    sub_template_dev.add_argument('file', nargs='?', const='templates-eve-git.settings', help='Get eve-git.settings')
+
     # group = parser.add_mutually_exclusive_group()
 
     # group.add_argument('--info', dest='info', action='store_true',
