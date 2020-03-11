@@ -20,16 +20,17 @@ optional arguments:
   --token [TOKEN]  Add or Update your GITEA_TOKEN (default: None)
 
 commands:
-  clone (cl)       Clone selected repo into current folder
-  list (l)         List remote Repositories. Max 50 items displayed.
-  list_org (lo)    List remote Oranizations. (Admin only)
-  create (c)       Create remote Repository (and clone it to current dir)
-  create_org (co)  Create remote Organization
-  remove (r)       Remove remote Repository
-  remove_org (ro)  Remove remote Organization. Has to be empty.
-  edit (e)         Edit remote repo Description
-  connect (cn)     Connect current repository to remote one
-  deploy (d)       Deploy selected repository to production
+  clone            Clone selected repo into current folder
+  list             List remote Repositories. Max 50 items displayed.
+  list_org         List remote Oranizations. (Admin only)
+  create           Create remote Repository (and clone it to current dir)
+  create_org       Create remote Organization
+  remove           Remove remote Repository
+  remove_org       Remove remote Organization. Has to be empty.
+  edit             Edit remote repo Description
+  connect          Connect current repository to remote one
+  deploy           Deploy selected repository to production
+  tamplate         Choose one of the templates and copy here.
 
 --- Arguments common to all sub-parsers ---
 optional arguments:
@@ -57,4 +58,30 @@ pip install update pip
 pip install -r requirements.txt
 
 python.exe eve_git.py
+```
+
+## Testing
+
+```Bash
+# (In project root folder)
+# Simple testing
+.env/bin/pytest
+
+# More verbal (individual files)
+.env/bin/pytest -v
+```
+
+## Coverage
+
+```Bash
+# (In project root folder)
+# Simple coverage, results in terminal
+.env/bin/pytest --cov-report term --cov=. tests/
+
+# Simple coverage, results in terminal with lines that are not covered
+.env/bin/pytest --cov-report term-missing --cov=. tests/
+
+# Coverage, results in html folder: 'htmlcov' accesible through 'index.html'
+.env/bin/pytest --cov-report term-missing --cov=. tests/
+
 ```

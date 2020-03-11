@@ -366,7 +366,7 @@ def connect_here(args):
     for remote in repo.remotes:
         if remote.name != 'gitea':
             continue
-        print(f"[ {Yel}WARNING{RCol} ] 'Gitea' remote already exists: {remote.url}")
+        print(f"[ {Yel}WARNING{RCol} ] 'gitea' remote already exists: {remote.url}")
         questions = [
             {
                 'message': 'Do you want to rewrite the url?',
@@ -839,7 +839,6 @@ def update_token(args):
         lineno(f"Updating value: 'config[server] = {{gitea_token = {args.token}}}'")
         config.read(settings_file)
         current_token = config['server']['gitea_token']
-        # print(f"[ INFO ] Current Gitea Token: {current_token}")
         config['server'] = {'gitea_token': args.token}
         ask_confirm(f"Replace current Gitea token '{current_token}' --> '{args.token}'?")
 
@@ -866,9 +865,10 @@ if __name__ == '__main__':
     lineno(f"args: {args}")
     lineno("--------------------------------------------------------------------------------")
 
-    # In case of no input, show help
     # if not any(vars(args).values()):
-    if not len(sys.argv) > 1:
+
+    # In case of no input, show help
+    if len(sys.argv) <= 1:
         print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] No arguments... Showing help.")
         print()
         parser.print_help()

@@ -61,6 +61,7 @@ def test_requirements_similar_src_missing():
         TEST_FILES / 'not_a_file', TEST_FILES / 'requirements_DST.txt')
 
 
+@pytest.mark.custom
 def test_requirements_similar_dst_missing():
     assert False is utils.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'not_a_file')
