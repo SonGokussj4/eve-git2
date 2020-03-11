@@ -848,6 +848,10 @@ def update_token(args):
         config.write(f)
 
 
+def templates(args):
+    print("Hey there from templates.")
+
+
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
