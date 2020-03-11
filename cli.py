@@ -2,7 +2,7 @@
 
 import argparse
 # import utils
-import eve_git
+import eve_git  # circular import...
 import getpass
 from colorama import Style, Fore
 
@@ -93,7 +93,8 @@ Description:
 
 """
     # OPTIONS
-    parser.add_argument('--token', default=None, help='Add or Update your GITEA_TOKEN')
+    parser.add_argument('--token', nargs='?', default=None, const='',
+                        help='Add or Update your GITEA_TOKEN')
 
     # ==================================
     # =           SUBPARSERS           =

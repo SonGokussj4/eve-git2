@@ -30,7 +30,7 @@ import requests
 from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
 from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import init, Fore, Back, Style
-from PyInquirer import style_from_dict, Token, prompt, Separator  # https://pypi.org/project/PyInquirer/
+from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 
@@ -71,7 +71,6 @@ SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
 SETTINGS_FILENAME = 'eve-git.settings'
-
 
 # ==============================
 # =           CONFIG           =
@@ -782,17 +781,28 @@ def update_token(args):
     # Don't know how to save the config back with comments too...
     config = configparser.ConfigParser()
 
-    if not settings_file.exists():
-        lineno(f"Creating new config with: {args.update_token}")
-        config['server'] = {'gitea_token': args.update_token}
-        config['app'] = {'debug': True}
-    else:
-        lineno(f"Updating value: 'config[server] = {{gitea_token = {args.update_token}}}'")
-        config.read(settings_file)
-        old_val = config['server']['gitea_token']
-        config['server'] = {'gitea_token': args.update_token}
+    if args.token == '':
+        if not settings_file.exists():
+            print(f"[ INFO ] Settings file '{settings_file}' does not exists. Use: --token GITEA_TOKEN")
+            return
 
-    ask_confirm(f"Are you sure you want to replace '{old_val}' with '{args.update_token}'?")
+        config.read(settings_file)
+        current_token = config['server']['gitea_token']
+        print(f"[ INFO ] Current Gitea token: {current_token}")
+        return
+
+    if not settings_file.exists():
+        print(f"[ INFO ] Creating new {settings_file} with Gitea token: {args.token}")
+        config['server'] = {'gitea_token': args.token}
+        config['app'] = {'debug': False}
+    else:
+        lineno(f"Updating value: 'config[server] = {{gitea_token = {args.token}}}'")
+        config.read(settings_file)
+        current_token = config['server']['gitea_token']
+        # print(f"[ INFO ] Current Gitea Token: {current_token}")
+        config['server'] = {'gitea_token': args.token}
+        ask_confirm(f"Replace current Gitea token '{current_token}' --> '{args.token}'?")
+
     lineno(f"Writing config into: {settings_file.resolve()}")
 
     with open(settings_file, 'w') as f:
@@ -824,7 +834,7 @@ if __name__ == '__main__':
         parser.print_help()
         sys.exit()
 
-    if args.update_token:
+    if args.token is not None:
         update_token(args)
         raise SystemExit
 
