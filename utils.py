@@ -334,11 +334,17 @@ def select_repo_from_list(session: str, server: str, repository: str,
 
     tbl_as_string = tbl.split('\n')
     table_header, table_body = tbl_as_string[1], tbl_as_string[3:-1]
+    # PyInquirer BUG - when selecting by mouse, it's ignoring 'value'
+    # repo_list = [
+    #     {'name': item, 'value': [val.strip() for val in item.split(maxsplit=2)]}
+    #     for item in table_body
+    # ]
     repo_list = [
-        {'name': item, 'value': [val.strip() for val in item.split(maxsplit=2)]}
+        {
+            'name': item
+        }
         for item in table_body
     ]
-
     choices = [Separator(f"\n   {table_header}\n")]
     choices.extend(repo_list)
     choices.append(Separator('\n'))
@@ -355,10 +361,10 @@ def select_repo_from_list(session: str, server: str, repository: str,
 
     if not answers:
         raise SystemExit
-
+    answers = [val.strip() for val in answers.get('selected').split(maxsplit=2)]
     lineno(f"answers: {answers}")
 
-    return Selected(*answers.get('selected'))
+    return Selected(*answers)
 
 
 def get_org_list_as_table(session, server):
