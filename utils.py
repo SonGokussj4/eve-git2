@@ -81,19 +81,19 @@ def download(url: str, filepath):
     return filepath
 
 
-@traced
-@logged
-def ask_with_defaults(question: str, defaults=''):
-    """Return user input with optional default argument.
+# @traced
+# @logged
+# def ask_with_defaults(question: str, defaults=''):
+#     """Return user input with optional default argument.
 
-    Example:
-        >>> ask_with_defaults("Are you happy?", "yes")
-        Are you happy? [yes]: very
-        'very'
-    """
-    user_input = input(f'{question} [{BWhi}{defaults}{RCol}]: ').strip()
-    result = user_input if user_input else defaults
-    return result
+#     Example:
+#         >>> ask_with_defaults("Are you happy?", "yes")
+#         Are you happy? [yes]: very
+#         'very'
+#     """
+#     user_input = input(f'{question} [{BWhi}{defaults}{RCol}]: ').strip()
+#     result = user_input if user_input else defaults
+#     return result
 
 
 @traced
@@ -109,6 +109,8 @@ def remove_dir_tree(dirpath):
     return True
 
 
+@traced
+@logged
 def lineno(msg: str=None):
     if not msg:
         return sys._getframe().f_back.f_lineno
@@ -118,6 +120,8 @@ def lineno(msg: str=None):
           f"{msg if msg is not None else ''}")
 
 
+@traced
+@logged
 def requirements_similar(src_requirements: str, dst_requirements: str) -> bool:
     """Return True if both src_req and dst_req have the same content.
 
@@ -138,6 +142,8 @@ def requirements_similar(src_requirements: str, dst_requirements: str) -> bool:
     return filecmp.cmp(src_requirements, dst_requirements)
 
 
+@traced
+@logged
 def lsremote(url):
     """Get references ('HEAD', 'refs/heads/<branch>') from remote <url> repo."""
     remote_refs = {}
@@ -148,6 +154,22 @@ def lsremote(url):
     return remote_refs
 
 
+@traced
+@logged
+def list_remote_branches(url: str) -> list:
+    """Return list of branches from remote repository."""
+    # GITEA API: /repos/{owner}/{repo}/branches
+    refs = lsremote(url)
+    branches = []
+    for key, val in refs.items():
+        if '/' not in key:
+            continue
+        branches.append(key.replace('refs/heads/', ''))
+    return branches
+
+
+@traced
+@logged
 def remote_repo_branch_exist(url: str, branch: str) -> bool:
     """Return True if <branch> of remote <url> repository exists."""
     refs = lsremote(url)
@@ -157,6 +179,8 @@ def remote_repo_branch_exist(url: str, branch: str) -> bool:
     return False
 
 
+@traced
+@logged
 def check_user_repo_exist(server: str, repository: str, username: str, session) -> bool:
     """Return True if both 'user' and combination gitea 'user/repo' exists.
 
@@ -182,6 +206,8 @@ def check_user_repo_exist(server: str, repository: str, username: str, session) 
     return True
 
 
+@traced
+@logged
 def check_org_exist(server: str, organization: str, session) -> bool:
     """Return True if gitea 'organization' exists.
 
@@ -215,6 +241,8 @@ def check_org_exist(server: str, organization: str, session) -> bool:
     return True
 
 
+@traced
+@logged
 def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str = ''):
     if type(src_filepath) == 'str':
         src_filepath = Path(src_filepath)
@@ -232,6 +260,8 @@ def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str 
     return True
 
 
+@traced
+@logged
 def is_git_repo(path: any) -> bool:
     """Return True if 'path' is git repository, False otherwise."""
     try:
@@ -241,6 +271,8 @@ def is_git_repo(path: any) -> bool:
         return False
 
 
+@traced
+@logged
 def get_repo_list_as_table(session: requests.Session(), server: str,
                            repository: str, username: str='') -> columnar:
     """Return columnar() table object with list of repositories using gitea api.
@@ -305,6 +337,8 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
     return columnar(results, tbl_headers, no_borders=True, wrap_max=0)
 
 
+@traced
+@logged
 def select_repo_from_list(session: str, server: str, repository: str,
                           username: str = '', question: str = '') -> Selected:
     """Make columnar() table selectable, return Selected().
@@ -367,6 +401,8 @@ def select_repo_from_list(session: str, server: str, repository: str,
     return Selected(*answers)
 
 
+@traced
+@logged
 def get_org_list_as_table(session, server):
     """Return columnar() table object with list of organizations using gitea api.
 
@@ -422,6 +458,8 @@ def get_org_list_as_table(session, server):
     return columnar(results, headers, no_borders=True)
 
 
+@traced
+@logged
 def select_org_from_list(session, server, question):
     """Make columnar() table selectable, return Selected('organization') object.
 
@@ -473,7 +511,8 @@ def select_org_from_list(session, server, question):
     return selected
 
 
-
+@traced
+@logged
 def ask_confirm(msg):
     questions = [
         {
@@ -495,6 +534,8 @@ def ask_confirm(msg):
     return True
 
 
+@traced
+@logged
 def ask_confirm_data(msg, comp_str):
     questions = [
         {
@@ -522,3 +563,30 @@ def ask_confirm_data(msg, comp_str):
     return True
 
 
+@traced
+@logged
+def ask_confirm_from_list(msg, comp_str):
+    questions = [
+        {
+            'message': msg,
+            'name': 'result',
+            'type': 'input',
+        }
+    ]
+    answers = prompt(questions, style=QSTYLE)
+
+    if not answers:
+        raise SystemExit
+
+    lineno(f"answers: {answers}")
+
+    if not answers.get('result'):
+        raise SystemExit(f"[ INFO ] Aborting...")
+
+    answer = answers.get('result')
+    if not answer == comp_str:
+        msg = (f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] "
+               f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting...")
+        raise Exception(msg)
+
+    return True

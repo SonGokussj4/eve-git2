@@ -163,14 +163,55 @@ def deploy(args):
     url = f"{SERVER}/{args.username}/{args.repository}"
     lineno(f"url: {url}")
 
-    check_user_repo_exist(SERVER, args.repository, args.username, args.session)
-    if not remote_repo_branch_exist(url=url, branch=args.branch):
+    # TODO: This is not needed now because user select from interactive list but will be used in the future
+    # when user enters all args: deploy reponame username [branch]
+    # check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+
+    remote_branches = list_remote_branches(url)
+
+    if args.branch not in remote_branches:
         msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Remote branch [{BRed}{args.branch}{RCol}] does not exist.'"
         raise Exception(msg)
+
+    questions = [
+        {
+            'message': f"Repository:",
+            'default': args.repository,
+            'name': 'repository',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "User/Org:",
+            'default': args.username,
+            'name': 'username',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Branch:",
+            'default': args.branch,
+            'name': 'branch',
+            'type': 'input',
+            'validate': lambda answer: f"Wrong choice. Choose from: {remote_branches}"
+            if answer not in remote_branches else True
+        },
+    ]
+
+    answers = prompt(questions, style=QSTYLE)
+    if not answers:
+        raise SystemExit
+
+    args.branch = answers.get('branch')
 
     # Local and Remove directory
     tmp_dir = Path('/tmp') / args.repository
     target_dir = SKRIPTY_DIR / args.repository
+
+    print(f"[ INFO ] Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    ask_confirm(f"Are you SURE?")
 
     # Remove existing /tmp/{repository} folder
     if tmp_dir.exists():
@@ -266,9 +307,6 @@ def deploy(args):
     # Rsync all the data
     lineno(f"ignore_venv: '{ignore_venv}'")
 
-    print(f"[ INFO ] Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
-    ask_confirm(f"Are you SURE?")
-
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
         if os.name != 'nt':
@@ -282,6 +320,7 @@ def deploy(args):
                    f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
         else:
             cmd = f'xcopy /S /I /E /Y {tmp_dir} {target_dir.parent} /EXCLUDE:rsync-directory-exclusions.txt'
+
     lineno(f"Copy cmd: '{cmd}'")
     os.system(cmd)
 
@@ -783,7 +822,7 @@ def update_token(args):
 
     if args.token == '':
         if not settings_file.exists():
-            print(f"[ INFO ] Settings file '{settings_file}' does not exists. Use: --token GITEA_TOKEN")
+            print(f"[ INFO ] Settings file '{settings_file}' does not exists. Use: --token YOUR_API_KEY")
             return
 
         config.read(settings_file)
