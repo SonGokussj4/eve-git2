@@ -103,34 +103,34 @@ Description:
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
     # CLONE
-    parser_clone = subparsers.add_parser('clone', help='Clone one thing!!!', parents=[common])
-    parser_clone.add_argument('repository', help='Help for <repository>')
-    parser_clone.add_argument('username', nargs='?', help='Help for <username>')
+    parser_clone = subparsers.add_parser('clone', aliases=['cl'], parents=[common], help='Clone selected repo into current folder')
+    parser_clone.add_argument('repository', help='Repository name')
+    parser_clone.add_argument('username', nargs='?', help='Specify User/Org')
     parser_clone.formatter_class = CustomHelpFormatter
     parser_clone.set_defaults(func=eve_git.clone_repo)
 
     # LIST
-    parser_list = subparsers.add_parser('list', help='List all the things!!!', parents=[common])
+    parser_list = subparsers.add_parser('list', aliases=['l'], help='List remote Repositories. Max 50 items displayed.', parents=[common])
     parser_list.add_argument('repository', nargs='?', default='', help='Help for <repository>')
-    parser_list.add_argument('username', nargs='?', default='', help='Specify user/org')
+    parser_list.add_argument('username', nargs='?', default='', help='Specify User/Org')
     parser_list.formatter_class = CustomHelpFormatter
     parser_list.set_defaults(func=eve_git.list_repo)
 
     # LIST_ORG
-    parser_list_org = subparsers.add_parser('list_org', help='List all the Orgs!!!', parents=[common])
+    parser_list_org = subparsers.add_parser('list_org', aliases=['lo'], help='List remote Oranizations. (Admin only)', parents=[common])
     parser_list_org.set_defaults(func=eve_git.list_org)
 
     # CREATE
-    parser_create = subparsers.add_parser('create', help='Create one thing!!!', parents=[common])
-    parser_create.add_argument('reponame', nargs='?', default='', help='Help for <repository>')
-    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write project description>', help='Help for <description>')
-    parser_create.add_argument('username', nargs='?', default=getpass.getuser(), help='Help for <username>')
+    parser_create = subparsers.add_parser('create', aliases=['c'], help='Create remote Repository (and clone it to current dir)', parents=[common])
+    parser_create.add_argument('reponame', nargs='?', default='', help='Repository name')
+    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write project description>', help='New repo description')
+    parser_create.add_argument('username', nargs='?', default=getpass.getuser(), help='Specify User/Org under which will it be created')
     parser_create.formatter_class = CustomHelpFormatter
     parser_create.set_defaults(func=eve_git.create_repo)
 
     # CREATE_ORG
-    parser_create = subparsers.add_parser('create_org', help='Create one org thing!!!', parents=[common])
-    parser_create.add_argument('organization', nargs='?', default='', help='Help for <organization>')
+    parser_create = subparsers.add_parser('create_org', aliases=['co'], help='Create remote Organization', parents=[common])
+    parser_create.add_argument('organization', nargs='?', default='', help='Specify Organization')
     parser_create.add_argument('description', nargs='?', default=f'TODO: <Write organization description>', help='Help for <description>')
     parser_create.add_argument('fullname', nargs='?', default='', help='Help for <fullname>')
     parser_create.add_argument('visibility', nargs='?', default='public', help='Help for <visibility>')
@@ -138,39 +138,39 @@ Description:
     parser_create.set_defaults(func=eve_git.create_org)
 
     # REMOVE
-    parser_remove = subparsers.add_parser('remove', help='Remove one thing!!!', parents=[common])
+    parser_remove = subparsers.add_parser('remove', aliases=['r'], help='Remove remote Repository', parents=[common])
     parser_remove.add_argument('repository', help='Help for <repository>')
-    parser_remove.add_argument('username', nargs='?', help='Specify user/org')
+    parser_remove.add_argument('username', nargs='?', help='Specify User/Org')
     parser_remove.formatter_class = CustomHelpFormatter
     parser_remove.set_defaults(func=eve_git.remove_repo)
 
     # REMOVE_ORG
-    parser_remove_org = subparsers.add_parser('remove_org', help='Remove one ORG thing!!!', parents=[common])
-    parser_remove_org.add_argument('organization', nargs='?', help='Help for <organization>')
+    parser_remove_org = subparsers.add_parser('remove_org', aliases=['ro'], help='Remove remote Organization. Has to be empty.', parents=[common])
+    parser_remove_org.add_argument('organization', nargs='?', help='Specify Organization')
     parser_remove_org.formatter_class = CustomHelpFormatter
     parser_remove_org.set_defaults(func=eve_git.remove_org)
 
     # EDIT
-    parser_edit = subparsers.add_parser('edit', help='Edit all the things!!!', parents=[common])
+    parser_edit = subparsers.add_parser('edit', aliases=['e'], help='Edit remote repo Description', parents=[common])
     parser_edit.add_argument('repository', help='Help for <repository>')
-    parser_edit.add_argument('username', nargs='?', help='Help for <username>')
+    parser_edit.add_argument('username', nargs='?', help='Specify User/Org')
     parser_edit.formatter_class = CustomHelpFormatter
     parser_edit.set_defaults(func=eve_git.edit_desc)
 
+    # CONNECT
+    parser_connect = subparsers.add_parser('connect', aliases=['cn'], help='Connect current repository to remote one', parents=[common])
+    parser_connect.add_argument('repository', nargs='?', default='', help='Specify Repository to connect to')
+    parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='git remote add <remote_name>')
+    parser_connect.formatter_class = CustomHelpFormatter
+    parser_connect.set_defaults(func=eve_git.connect_here)
+
     # DEPLOY
-    parser_deploy = subparsers.add_parser('deploy', help='Deploy all the things!!!', parents=[common])
+    parser_deploy = subparsers.add_parser('deploy', aliases=['d'], help='Deploy selected repository to production', parents=[common])
     parser_deploy.add_argument('repository', help='Help for <repository>')
-    parser_deploy.add_argument('username', nargs='?', help='Help for <username>')
+    parser_deploy.add_argument('username', nargs='?', help='Specify User/Org')
     parser_deploy.add_argument('branch', nargs='?', default='master', help='Help for <branch>')
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
-
-    # CONNECT
-    parser_connect = subparsers.add_parser('connect', help='Connect current thing!!!', parents=[common])
-    parser_connect.add_argument('repository', nargs='?', default='', help='Help for <repository>')
-    parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='Help for <repository>')
-    parser_connect.formatter_class = CustomHelpFormatter
-    parser_connect.set_defaults(func=eve_git.connect_here)
 
     # group = parser.add_mutually_exclusive_group()
 

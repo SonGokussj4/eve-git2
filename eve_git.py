@@ -85,6 +85,7 @@ SKRIPTY_EXE = Path(cfg['server']['skripty_exe'])
 SKRIPTY_SERVER = cfg['server']['skripty_server']
 LD_LIB_PATH = cfg['server']['ld_lib']
 DEBUG = cfg['app'].getboolean('debug')
+
 # Style for PyInquirer
 QSTYLE = style_from_dict({
     Token.Separator: '#686868 bold',
