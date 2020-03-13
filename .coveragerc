@@ -1,5 +1,8 @@
 [run]
-omit = 
+omit =
     .env/*
     tests/*
+data_file = tests/.coverage
 
+[html]
+directory = tests/htmlcov

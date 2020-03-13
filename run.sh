@@ -15,16 +15,16 @@ done
 # Real script directory found
 SCRIPTDIR="$( cd -P "$( dirname "$SOURCE" )" >/dev/null && pwd )"
 
-# Load variables from repo.config
-VENV_NAME=$(grep venv_name ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
-MAIN_FILE=$(grep main_file ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
+# Load variables from app.conf
+VENV_NAME=$(grep venv_name ${SCRIPTDIR}/app.conf | awk -F '[:=]' '{print $2}' | tr -d " ")
+MAIN_FILE=$(grep main_file ${SCRIPTDIR}/app.conf | awk -F '[:=]' '{print $2}' | tr -d " ")
 if [[ $VENV_NAME == "" || $MAIN_FILE == "" ]]; then
-    echo "[ ERROR ] Can't load either venv_name: '$VENV_NAME' or main_file: '$MAIN_FILE' from '${SCRIPTDIR}/repo.config'..."
+    echo "[ ERROR ] Can't load either venv_name: '$VENV_NAME' or main_file: '$MAIN_FILE' from '${SCRIPTDIR}/app.conf'..."
     exit 1
 fi
 
-# Add custom LD_LIBRARY_PATH if set in repo.config
-CUSTOM_LD_LIBRARY=$(grep ld_lib ${SCRIPTDIR}/repo.config | awk -F '[:=]' '{print $2}' | tr -d " ")
+# Add custom LD_LIBRARY_PATH if set in app.conf
+CUSTOM_LD_LIBRARY=$(grep ld_lib ${SCRIPTDIR}/app.conf | awk -F '[:=]' '{print $2}' | tr -d " ")
 if [[ CUSTOM_LD_LIBRARY != "" ]]; then
     # echo "[ DEBUG ] Adding '${CUSTOM_LD_LIBRARY}' to \$LD_LIBRARY_PATH"
     export LD_LIBRARY_PATH=${CUSTOM_LD_LIBRARY}:$LD_LIBRARY_PATH

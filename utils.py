@@ -12,8 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from columnar import columnar
 from colorama import Style, Fore
+from types import SimpleNamespace
 from autologging import logged, traced
 from PyInquirer import style_from_dict, Token, prompt, Separator
+
 
 
 # ==============================
@@ -39,6 +41,12 @@ class Selected:
     organization: str = ''
 
 
+@dataclass
+class SelectedFile:
+    filename: str = ''
+    filepath: str = ''
+
+
 # ==============================
 # =           COLORS           =
 # ==============================
@@ -58,6 +66,21 @@ QSTYLE = style_from_dict({
     Token.Answer: '#ffffff',
     # Token.Question: '#8C8C8C',
 })
+
+
+# ===============================
+# =           CLASSES           =
+# ===============================
+class NestedNamespace(SimpleNamespace):
+    """conf = NestedNamespace({'key': 'val', 'section': {'use': 'True'}})."""
+
+    def __init__(self, dictionary, **kwargs):
+        super().__init__(**kwargs)
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                self.__setattr__(key, NestedNamespace(value))
+            else:
+                self.__setattr__(key, value)
 
 
 # =================================
@@ -269,6 +292,65 @@ def is_git_repo(path: any) -> bool:
         return True
     except git.exc.InvalidGitRepositoryError:
         return False
+
+
+def get_files_as_table(directory: Path, hmmmm=None):
+    """Docs."""
+    data = [(item.name, item.resolve(), item) for item in directory.iterdir() if item.is_file()]
+    lineno(f"data: {data}")
+
+    tbl_headers = ('filename', 'path')
+    results = [
+        [
+            item[0],
+            item[1],
+        ]
+        for item in data]
+
+    return columnar(results, tbl_headers, no_borders=True, wrap_max=0)
+
+
+def select_files_from_list(directory: Path, hmmmm: bool = None, question: str = '') -> SelectedFile:
+    """Make columnar() table selectable, return Selected().
+    """
+    tbl = get_files_as_table(directory, hmmmm)
+    tbl_as_string = tbl.split('\n')
+    table_header, table_body = tbl_as_string[1], tbl_as_string[3:-1]
+    # PyInquirer BUG - when selecting by mouse, it's ignoring 'value'
+    # repo_list = [
+    #     {'name': item, 'value': [val.strip() for val in item.split(maxsplit=2)]}
+    #     for item in table_body
+    # ]
+    ls = [
+        {
+            'name': item
+        }
+        for item in table_body
+    ]
+    choices = [Separator(f"\n   {table_header}\n")]
+    choices.extend(ls)
+    choices.append(Separator('\n'))
+
+    questions = [{
+        'message': question,
+        'name': 'selected',
+        'type': 'list',
+        'choices': choices,
+        'pageSize': 50,
+    }]
+
+    answers = prompt(questions, style=QSTYLE)
+
+    if not answers:
+        raise SystemExit
+    answers = [val.strip() for val in answers.get('selected').split()]
+    lineno(f"answers: {answers}")
+
+    selected = SelectedFile()
+    selected.filename = answers[0]
+    selected.filepath = Path(answers[1])
+
+    return selected
 
 
 @traced

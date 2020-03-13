@@ -1,6 +1,7 @@
 #!/bin/bash
 
-configFileName='${configFileName}'
+# configFileName='${configFileName}'
+configFileName='app.conf'
 
 ## FIND DIRECTORY OF THE SCRIPT
 SOURCE="${BASH_SOURCE[0]}"

@@ -21,6 +21,8 @@ import configparser
 # import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
+import validate
+
 
 # Pip Libs
 #==========
@@ -33,6 +35,7 @@ from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
 from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
+from configobj import ConfigObj  # http://www.voidspace.org.uk/python/articles/configobj.shtml
 
 
 # User Libs
@@ -58,10 +61,10 @@ Cya, BCya = Fore.CYAN, f'{Fore.CYAN}{Style.BRIGHT}'
 # You have to run this script with python >= 3.7
 if sys.version_info.major != 3:
     print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Hell NO! You're using Python2!! That's not cool man...")
-    sys.exit()
+    raise SystemExit
 if sys.version_info.minor <= 6:
     print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Nah... Your Python version have to be at least 3.7. Sorry")
-    sys.exit()
+    raise SystemExit
 
 
 # =================================
@@ -71,6 +74,7 @@ SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
 SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
 SETTINGS_FILENAME = 'eve-git.settings'
+
 
 # ==============================
 # =           CONFIG           =
@@ -229,15 +233,15 @@ def deploy(args):
     lineno(f"Removing '{tmp_repo.git_dir}'")
     remove_dir_tree(tmp_repo.git_dir)
 
-    # Load repo.config from project root directory
-    lineno(f"Checking for 'repo.config'")
-    repo_cfg_filepath = tmp_dir / 'repo.config'
+    # Load app.conf from project root directory
+    lineno(f"Checking for 'app.conf'")
+    app_conf_filepath = tmp_dir / 'app.conf'
     ignore_venv = True
 
-    if repo_cfg_filepath.exists():
-        lineno(f"'{repo_cfg_filepath}' found. Loading config.")
-        repo_cfg = configparser.ConfigParser(allow_no_value=True)
-        repo_cfg.read(repo_cfg_filepath)
+    if app_conf_filepath.exists():
+        lineno(f"'{app_conf_filepath}' found. Loading config.")
+        app_conf = configparser.ConfigParser(allow_no_value=True)
+        app_conf.read(app_conf_filepath)
 
         # Make files executable
         lineno(f"Changing permissions for all files in '{tmp_dir}' to 664")
@@ -247,23 +251,24 @@ def deploy(args):
                 continue
             os.chmod(item, 0o664)
 
-        for key, val in repo_cfg.items('Executable'):
+        for key, val in app_conf.items('Executable'):
             exe_file = tmp_dir / key
             if not exe_file.exists():
-                print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'repo.config'.")
+                print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'app.conf'.")
                 continue
             lineno(f"Making '{exe_file}' executable... Permissions: 774")
             os.chmod(exe_file, 0o774)
 
-        # Check if requirements.txt / repo.config are different
         src_requirements = tmp_dir / 'requirements.txt'
-        dst_requirements = target_dir / 'requirements.txt'
-        ignore_venv = requirements_similar(src_requirements, dst_requirements)
-        lineno(f"ignore_venv: {ignore_venv}")
+        if src_requirements.exists():
+            dst_requirements = target_dir / 'requirements.txt'
+            # Check if requirements.txt / app.conf are different
+            ignore_venv = requirements_similar(src_requirements, dst_requirements)
+            lineno(f"ignore_venv: {ignore_venv}")
 
         # Requirements.txt files are different. Create virtual environment
         if not ignore_venv:
-            framework = repo_cfg['Repo']['Framework']
+            framework = app_conf['Repo']['Framework']
             print(f"[ INFO ] Making virtual environment...")
             cmd = f'{framework} -m venv {tmp_dir}/.env'
             lineno(f"cmd: '{cmd}'")
@@ -281,11 +286,11 @@ def deploy(args):
             lineno(f"cmd: '{cmd}'")
             os.system(cmd)
 
-        # Replace venv paths with sed to target project path
-        print(f"[ INFO ] Changing venv paths inside files: '{tmp_dir}/.env' --> '{target_dir}/.env'")
-        cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
-        lineno(f"cmd: '{cmd}'")
-        os.system(cmd)
+            # Replace venv paths with sed to target project path
+            print(f"[ INFO ] Changing venv paths inside files: '{tmp_dir}/.env' --> '{target_dir}/.env'")
+            cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
+            lineno(f"cmd: '{cmd}'")
+            os.system(cmd)
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
@@ -294,16 +299,16 @@ def deploy(args):
             lineno(f"{target_dir} created.")
 
         # Make symbolic link(s)
-        for key, val in repo_cfg.items('Link'):
+        for key, val in app_conf.items('Link'):
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
             print(f"[ INFO ] Linking '{src_filepath}' --> '{dst_filepath}'")
             make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
 
-    # Case repo.config file was not found in project
+    # Case app.conf file was not found in project
     else:
-        print(f"[ INFO ] '{repo_cfg_filepath}' not found... Ignoring making executables, symlinks, ...")
-        print(f"[ INFO ] To create a repo.config.template, use 'eve-git template repo.config'")
+        print(f"[ INFO ] '{app_conf_filepath}' not found... Ignoring making executables, symlinks, ...")
+        print(f"[ INFO ] To create a app.conf.template, use 'eve-git template app.conf'")
 
     # Rsync all the data
     lineno(f"ignore_venv: '{ignore_venv}'")
@@ -317,7 +322,7 @@ def deploy(args):
     # Case venv wasn't created locally, ignore venv folders so that they will not be deleted in target_dir
     else:
         if os.name != 'nt':
-            cmd = (f'rsync -ah --delete --exclude-from={tmp_dir}/rsync-directory-exclusions.txt '
+            cmd = (f'rsync -ah --delete --exclude-from={SCRIPTDIR}/rsync-directory-exclusions.txt '
                    f'{tmp_dir} {SKRIPTY_SERVER}:{target_dir.parent}')
         else:
             cmd = f'xcopy /S /I /E /Y {tmp_dir} {target_dir.parent} /EXCLUDE:rsync-directory-exclusions.txt'
@@ -812,7 +817,7 @@ def edit_desc(args):
 
     print(f"[ INFO ] DONE")
 
-    return 0
+    return
 
 
 def update_token(args):
@@ -849,7 +854,15 @@ def update_token(args):
 
 
 def templates(args):
-    print("Hey there from templates.")
+    templates_dir = SCRIPTDIR / 'templates'
+    lineno(f"templates_dir: {templates_dir.resolve()}")
+    selected = select_files_from_list(
+        directory=templates_dir, question="Select template file to download into current directory")
+    lineno(f"selected: {selected}")
+    shutil.copy(selected.filepath, CURDIR)
+    print(f"[ INFO ] File {selected.filename} copied into current directory.")
+    return
+
 
 
 # ====================================
