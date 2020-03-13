@@ -852,6 +852,23 @@ def update_token(args):
     with open(settings_file, 'w') as f:
         config.write(f)
 
+    # In [69]: user
+    # Out[69]: ConfigObj({'debug': 'True', 'main_file': 'main.py', 'venv': {'use': 'True'}})
+
+    # In [70]: n = NestedNamespace(user)
+
+    # In [71]: n
+    # Out[71]: NestedNamespace(debug='True', main_file='main.py', venv=NestedNamespace(use='True'))
+
+    # In [72]: n.debug
+    # Out[72]: 'True'
+
+    # In [73]: n.venv
+    # Out[73]: NestedNamespace(use='True')
+
+    # In [74]: n.venv.use
+    # Out[74]: 'True'
+
 
 def templates(args):
     templates_dir = SCRIPTDIR / 'templates'
