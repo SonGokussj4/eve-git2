@@ -1,6 +1,9 @@
 [run]
 omit =
     .env/*
+    env/*
+    .venv/*
+    venv/*
     tests/*
 data_file = tests/.coverage
 
