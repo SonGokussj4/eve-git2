@@ -13,9 +13,11 @@ from pathlib import Path
 from columnar import columnar
 from colorama import Style, Fore
 from types import SimpleNamespace
-from autologging import logged, traced
+# from autologging import logged, traced
 from PyInquirer import style_from_dict, Token, prompt, Separator
 
+import logging
+log = logging.getLogger(__name__)
 
 
 # ==============================

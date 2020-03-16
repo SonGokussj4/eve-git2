@@ -10,12 +10,16 @@
 # System Libs
 #=============
 import os
+import re
 import sys
 import json
 # import shlex
 # import shutil
+import copy
 import getpass
 import logging
+import logging.handlers
+import colorama
 # import fileinput
 import configparser
 # import subprocess as sp
@@ -34,7 +38,7 @@ from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
-from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
+# from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 from configobj import ConfigObj  # http://www.voidspace.org.uk/python/articles/configobj.shtml
 
 
@@ -72,8 +76,10 @@ if sys.version_info.minor <= 6:
 # =================================
 SCRIPTDIR = Path(__file__).resolve().parent
 CURDIR = Path('.')
-SETTINGS_DIRS = (SCRIPTDIR, Path.home(), CURDIR)
+SETTINGS_DIR = Path.home() / '.eve_git'
+SETTINGS_DIRS = (SCRIPTDIR, SETTINGS_DIR, CURDIR)
 SETTINGS_FILENAME = 'eve-git.settings'
+LOG_DIR = SETTINGS_DIR / 'logs'
 
 
 # ==============================
@@ -119,26 +125,137 @@ if not DEBUG:
 # ===============================
 from progress import Progress
 
+LOG_COLORS = {
+    # logging.TRACE: BBla,
+    logging.DEBUG: Fore.LIGHTBLACK_EX,
+    logging.INFO: Style.RESET_ALL,
+    logging.WARNING: Fore.YELLOW,
+    logging.ERROR: Fore.RED,
+    logging.CRITICAL: Fore.RED + Style.BRIGHT,
+    # logging.SUCCESS: BGre,
+    # logging.OK: BGre,
+}
+
+
+class ColorFormatter(logging.Formatter):
+    def format(self, record, *args, **kwargs):
+        # if the corresponding logger has children, they may receive modified
+        # record, so we want to keep it intact
+        new_record = copy.copy(record)
+        if new_record.levelno in LOG_COLORS:
+            # we want levelname to be in different color, so let's modify it
+            new_record.levelname = "{color_begin}{level: <8}{color_end}".format(
+                level=new_record.levelname,
+                color_begin=LOG_COLORS[new_record.levelno],
+                color_end=colorama.Style.RESET_ALL,
+            )
+            # new_record.lineno = "{color_begin}{lineno}{color_end}".format(
+            #     lineno=new_record.lineno,
+            #     color_begin=LOG_COLORS[new_record.levelno],
+            #     color_end=colorama.Style.RESET_ALL,
+            # )
+            # if new_record.levelno == 10:  # DEBUG - Even MSG colored
+            #     new_record.msg = "{color_begin}{msg}{color_end}".format(
+            #         msg=new_record.msg,
+            #         color_begin=LOG_COLORS[new_record.levelno],
+            #         color_end=colorama.Style.RESET_ALL,
+            #     )
+        # now we can let standart formatting take care of the rest
+        return super(ColorFormatter, self).format(new_record, *args, **kwargs)
+
+
+class NoColorFormatter(logging.Formatter):
+    def format(self, record):
+        ansi_escape = re.compile(r'''
+            \x1B  # ESC
+            (?:   # 7-bit C1 Fe (except CSI)
+                [@-Z\\-_]
+            |     # or [ for CSI, followed by a control sequence
+                \[
+                [0-?]*  # Parameter bytes
+                [ -/]*  # Intermediate bytes
+                [@-~]   # Final byte
+            )
+        ''', re.VERBOSE)
+        new_record = copy.copy(record)
+        new_record.msg = ansi_escape.sub("", new_record.msg)
+        # record.msg = record.msg
+        return super(NoColorFormatter, self).format(new_record)
+
+
+# ===============================
+# =           LOGGING           =
+# ===============================
+logging.getLogger().setLevel(logging.NOTSET)
+log = logging.getLogger()
+
+# Create logs dir if not exists
+if not LOG_DIR.exists():
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def init_file_handlers(args):
+    # FILE HANDLER - LAST RUN
+    fhandler = logging.FileHandler(LOG_DIR / 'last_run.log', 'w')
+    fhandler.setLevel(logging.NOTSET)
+    formatter = NoColorFormatter(
+        fmt='%(asctime)s - %(levelname)-8s | %(message)s [%(filename)s:%(funcName)s:%(lineno)s]',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    fhandler.setFormatter(formatter)
+    logging.root.addHandler(fhandler)
+
+    # FILE HANDLER - ALL - Rotating
+    rotatingHandler = logging.handlers.RotatingFileHandler(
+        filename=LOG_DIR / 'eve-git_rotating.log',
+        maxBytes=1000000,
+        backupCount=5
+    )
+    rotatingHandler.setLevel(logging.NOTSET)
+    formatter = NoColorFormatter(
+        fmt='%(asctime)s - %(levelname)-8s | %(message)s [%(filename)s:%(funcName)s:%(lineno)s]',
+        datefmt='%Y-%m-%d %H:%M:%S')
+    rotatingHandler.setFormatter(formatter)
+    logging.getLogger().addHandler(rotatingHandler)
+
+    # FILE HANDLER - ALL - Timed Rotating
+    timedRotatingHandler = logging.handlers.TimedRotatingFileHandler(
+        filename=LOG_DIR / 'eve-git_timed_rotating.log',
+        when='midnight',
+        backupCount=10
+    )
+    timedRotatingHandler.setLevel(logging.NOTSET)
+    formatter = NoColorFormatter(
+        fmt='%(asctime)s - %(levelname)-8s | %(message)s [%(filename)s:%(funcName)s:%(lineno)s]',
+        datefmt='%Y-%m-%d %H:%M:%S')
+    timedRotatingHandler.setFormatter(formatter)
+    logging.getLogger().addHandler(timedRotatingHandler)
+
+
+def init_logging(args):
+    console = logging.StreamHandler(sys.stdout)
+    # if args.v == 4:
+    #     console.setLevel(logging.NOTSET)
+    #     fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(filename)s:%(lineno)s)')
+    if args.v == 3:
+        console.setLevel(logging.DEBUG)
+        fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(pathname)s:%(lineno)s)')
+    elif args.v == 2:
+        console.setLevel(logging.DEBUG)
+        fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(filename)s:%(lineno)s)')
+    elif args.v == 1:
+        console.setLevel(logging.DEBUG)
+        fmt = ColorFormatter('[%(levelname)s]: %(message)s')
+    else:
+        console.setLevel(logging.INFO)
+        fmt = ColorFormatter('[%(levelname)s]: %(message)s')
+    console.setFormatter(fmt)
+    logging.getLogger().addHandler(console)  # add to root logger
+
 
 # =================================
 # =           FUNCTIONS           =
 # =================================
-def init_logging(args):
-    log_level = logging.WARNING
-    if args.v:
-        if args.v == 1:
-            log_level = logging.INFO
-        elif args.v == 2:
-            log_level = logging.DEBUG
-        else:
-            log_level = TRACE
-
-    logging.basicConfig(
-        level=log_level, stream=sys.stderr,
-        # format="[ %(levelname)s ] :%(filename)s,%(lineno)d:%(name)s.%(funcName)s:%(message)s")
-        format="{: >4}.[ %(levelname)s ] %(funcName)s: %(message)s".format(lineno()))
-
-
 def init_session(args):
     session = requests.Session()
 
@@ -150,14 +267,12 @@ def init_session(args):
     return session
 
 
-@traced
-@logged
 def deploy(args):
-    print(f"[ INFO ] Deploying...")
+    log.info(f"Deploying...")
 
-    lineno(f"args.repository: {args.repository}")
-    lineno(f"args.username: {args.username}")
-    lineno(f"args.branch: {args.branch}")
+    log.debug(f"args.repository: {args.repository}")
+    log.debug(f"args.username: {args.username}")
+    log.debug(f"args.branch: {args.branch}")
 
     selected = select_repo_from_list(args.session, SERVER, args.repository, args.username,
                                      'Select repository to deploy')
@@ -166,7 +281,7 @@ def deploy(args):
     args.username = selected.username
 
     url = f"{SERVER}/{args.username}/{args.repository}"
-    lineno(f"url: {url}")
+    log.debug(f"url: {url}")
 
     # TODO: This is not needed now because user select from interactive list but will be used in the future
     # when user enters all args: deploy reponame username [branch]
@@ -175,7 +290,8 @@ def deploy(args):
     remote_branches = list_remote_branches(url)
 
     if args.branch not in remote_branches:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Remote branch [{BRed}{args.branch}{RCol}] does not exist.'"
+        msg = f"Remote branch [{BRed}{args.branch}{RCol}] does not exist.'"
+        log.critical(msg)
         raise Exception(msg)
 
     questions = [
@@ -215,36 +331,36 @@ def deploy(args):
     tmp_dir = Path('/tmp') / args.repository
     target_dir = SKRIPTY_DIR / args.repository
 
-    print(f"[ INFO ] Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
     ask_confirm(f"Are you SURE?")
 
     # Remove existing /tmp/{repository} folder
     if tmp_dir.exists():
-        print(f"[ {Yel}WARNING{RCol} ] '{tmp_dir}' already exists. Removing.")
+        log.warning(f"'{tmp_dir}' already exists. Removing.")
         removed = remove_dir_tree(tmp_dir)
-        lineno(f"removed: {removed}")
+        log.debug(f"removed: {removed}")
 
-    print(f"[ INFO ] Clonning to '{tmp_dir}'...")
+    log.info(f"Clonning to '{tmp_dir}'...")
 
     tmp_repo = Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
 
     # Remove .git folder in /tmp repo
-    print(f"[ INFO ] Removing '.git' folder")
-    lineno(f"Removing '{tmp_repo.git_dir}'")
+    log.info(f"Removing '.git' folder")
+    log.debug(f"Removing '{tmp_repo.git_dir}'")
     remove_dir_tree(tmp_repo.git_dir)
 
     # Load app.conf from project root directory
-    lineno(f"Checking for 'app.conf'")
+    log.debug(f"Checking for 'app.conf'")
     app_conf_filepath = tmp_dir / 'app.conf'
     ignore_venv = True
 
     if app_conf_filepath.exists():
-        lineno(f"'{app_conf_filepath}' found. Loading config.")
+        log.debug(f"'{app_conf_filepath}' found. Loading config.")
         app_conf = configparser.ConfigParser(allow_no_value=True)
         app_conf.read(app_conf_filepath)
 
         # Make files executable
-        lineno(f"Changing permissions for all files in '{tmp_dir}' to 664")
+        log.debug(f"Changing permissions for all files in '{tmp_dir}' to 664")
         for item in tmp_dir.iterdir():
             item: Path
             if not item.is_file():
@@ -254,9 +370,9 @@ def deploy(args):
         for key, val in app_conf.items('Executable'):
             exe_file = tmp_dir / key
             if not exe_file.exists():
-                print(f"[ WARNING ] file '{exe_file}' does not exist. Check your config in 'app.conf'.")
+                log.warning(f"File '{exe_file}' does not exist. Check your config in 'app.conf'.")
                 continue
-            lineno(f"Making '{exe_file}' executable... Permissions: 774")
+            log.debug(f"Making '{exe_file}' executable... Permissions: 774")
             os.chmod(exe_file, 0o774)
 
         src_requirements = tmp_dir / 'requirements.txt'
@@ -264,54 +380,54 @@ def deploy(args):
             dst_requirements = target_dir / 'requirements.txt'
             # Check if requirements.txt / app.conf are different
             ignore_venv = requirements_similar(src_requirements, dst_requirements)
-            lineno(f"ignore_venv: {ignore_venv}")
+            log.debug(f"ignore_venv: {ignore_venv}")
 
         # Requirements.txt files are different. Create virtual environment
         if not ignore_venv:
             framework = app_conf['Repo']['Framework']
-            print(f"[ INFO ] Making virtual environment...")
+            log.info(f"Making virtual environment...")
             cmd = f'{framework} -m venv {tmp_dir}/.env'
-            lineno(f"cmd: '{cmd}'")
+            log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
 
             # Upgrade pip
-            print(f"[ INFO ] Upgrading Pip")
+            log.info(f"Upgrading Pip")
             cmd = f'{tmp_dir}/.env/bin/pip install --upgrade pip'
-            lineno(f"cmd: '{cmd}'")
+            log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
 
             # Pip install
-            print(f"[ INFO ] Running Pip install")
+            log.info(f"Running Pip install")
             cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
-            lineno(f"cmd: '{cmd}'")
+            log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
 
             # Replace venv paths with sed to target project path
-            print(f"[ INFO ] Changing venv paths inside files: '{tmp_dir}/.env' --> '{target_dir}/.env'")
+            log.info(f"Changing venv paths inside files: '{tmp_dir}/.env' --> '{target_dir}/.env'")
             cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
-            lineno(f"cmd: '{cmd}'")
+            log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
             cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
             os.system(cmd)
-            lineno(f"{target_dir} created.")
+            log.debug(f"{target_dir} created.")
 
         # Make symbolic link(s)
         for key, val in app_conf.items('Link'):
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
-            print(f"[ INFO ] Linking '{src_filepath}' --> '{dst_filepath}'")
+            log.info(f"Linking '{src_filepath}' --> '{dst_filepath}'")
             make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
 
     # Case app.conf file was not found in project
     else:
-        print(f"[ INFO ] '{app_conf_filepath}' not found... Ignoring making executables, symlinks, ...")
-        print(f"[ INFO ] To create a app.conf.template, use 'eve-git template app.conf'")
+        log.info(f"'{app_conf_filepath}' not found... Ignoring making executables, symlinks, ...")
+        log.info(f"To create a app.conf.template, use 'eve-git template app.conf'")
 
     # Rsync all the data
-    lineno(f"ignore_venv: '{ignore_venv}'")
+    log.debug(f"ignore_venv: '{ignore_venv}'")
 
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
@@ -327,19 +443,17 @@ def deploy(args):
         else:
             cmd = f'xcopy /S /I /E /Y {tmp_dir} {target_dir.parent} /EXCLUDE:rsync-directory-exclusions.txt'
 
-    lineno(f"Copy cmd: '{cmd}'")
+    log.debug(f"Copy cmd: '{cmd}'")
     os.system(cmd)
 
     # Cleanup
     remove_dir_tree(tmp_dir)
-    lineno(f"'{tmp_dir}' removed")
+    log.debug(f"'{tmp_dir}' removed")
 
-    print(f"[ INFO ] Deployment completed.")
+    log.info(f"Deployment completed.")
     return 0
 
 
-@traced
-@logged
 def connect_here(args):
     print(f"[ INFO ] Connecting remote repository with this one (local)")
     if not is_git_repo(CURDIR):
@@ -398,8 +512,6 @@ def connect_here(args):
     return
 
 
-@traced
-@logged
 def create_org(args):
     """Function Description."""
     questions = [
@@ -487,8 +599,6 @@ def create_org(args):
     return 0
 
 
-@traced
-@logged
 def create_repo(args):
     questions = [
         {
@@ -601,8 +711,6 @@ def transfer_repo():
     pass
 
 
-@traced
-@logged
 def list_org(args):
     """Function for listing organizations."""
     lineno(f"Listing organizations")
@@ -613,8 +721,6 @@ def list_org(args):
     return
 
 
-@traced
-@logged
 def list_repo(args):
     """Function for listing directories."""
     lineno(f"Listing repository.")
@@ -623,8 +729,6 @@ def list_repo(args):
     return
 
 
-@traced
-@logged
 def clone_repo(args):
     """Clone repo into current directory."""
     lineno(f"Cloning repository.")
@@ -660,8 +764,6 @@ def clone_repo(args):
     print(f"[ INFO ] DONE")
 
 
-@traced
-@logged
 def remove_repo(args):
     """Remove repository from gitea"""
     lineno(f"Removing repo.")
@@ -699,8 +801,6 @@ def remove_repo(args):
     return 0
 
 
-@traced
-@logged
 def remove_org(args):
     """Remove organization from gitea"""
     lineno(f"Removing oranization")
@@ -752,8 +852,6 @@ def remove_org(args):
     return 0
 
 
-@traced
-@logged
 def edit_desc(args):
     """Edit description in repo."""
     lineno(f"Editing repository.")
@@ -872,14 +970,13 @@ def update_token(args):
 
 def templates(args):
     templates_dir = SCRIPTDIR / 'templates'
-    lineno(f"templates_dir: {templates_dir.resolve()}")
+    log.debug(f"templates_dir: {templates_dir.resolve()}")
     selected = select_files_from_list(
         directory=templates_dir, question="Select template file to download into current directory")
-    lineno(f"selected: {selected}")
+    log.debug(f"selected: {selected}")
     shutil.copy(selected.filepath, CURDIR)
-    print(f"[ INFO ] File {selected.filename} copied into current directory.")
+    log.info(f"File {selected.filename} copied into current directory.")
     return
-
 
 
 # ====================================
@@ -889,21 +986,24 @@ if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
 
-    # Initialize logger depending on the -v, -vv, -vvv arguments
-    init_logging(args)
+    console = logging.StreamHandler(sys.stdout)
 
     # Initialize session with headers containing GITEA_TOKEN
     args.session = init_session(args)
 
-    lineno("--------------------------------------------------------------------------------")
-    lineno(f"args: {args}")
-    lineno("--------------------------------------------------------------------------------")
+    # Initialize logger depending on the -v, -vv, -vvv arguments
+    init_file_handlers(args)
+    init_logging(args)
+
+    log.debug("--------------------------------------------------------------------------------")
+    log.debug(f"args: {args}")
+    log.debug("--------------------------------------------------------------------------------")
 
     # if not any(vars(args).values()):
 
     # In case of no input, show help
     if len(sys.argv) <= 1:
-        print(f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] No arguments... Showing help.")
+        log.error(f"No arguments... Showing help.")
         print()
         parser.print_help()
         sys.exit()
