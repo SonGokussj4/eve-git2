@@ -145,19 +145,20 @@ def lineno(msg: str=None):
 
 @traced
 @logged
-def requirements_similar(src_requirements: str, dst_requirements: str) -> bool:
+def requirements_similar(src_requirements: any, dst_requirements: any) -> bool:
     """Return True if both src_req and dst_req have the same content.
+    Arguments:
+        src_requirements [Path or str]: First file to compare
+        dst_requirements [Path or str]: Second file to compare
 
     Usage:
         >>> requirements_similar('/tmp/req1.txt', '/tmp/req_same.txt')
         True
-        >>> requirements_similar('/tmp/req1.txt', '/tmp/req_different.txt')
+        >>> requirements_similar(Path('/tmp/req1.txt'), '/tmp/req_different.txt')
         False
     """
-    if type(src_requirements) == 'str':
-        src_requirements: Path = Path(src_requirements)
-    if type(dst_requirements) == 'str':
-        dst_requirements: Path = Path(dst_requirements)
+    src_requirements = Path(src_requirements)
+    dst_requirements = Path(dst_requirements)
 
     if not src_requirements.exists() or not dst_requirements.exists():
         return False

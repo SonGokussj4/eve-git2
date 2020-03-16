@@ -51,6 +51,11 @@ def test_requirements_similar_same():
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_SRC.txt')
 
 
+def test_requirements_similar__same_req_as_string():
+    assert True is utils.requirements_similar(
+        str(TEST_FILES / 'requirements_SRC.txt'), str(TEST_FILES / 'requirements_SRC.txt'))
+
+
 def test_requirements_similar_not_same():
     assert False is utils.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_DST.txt')
