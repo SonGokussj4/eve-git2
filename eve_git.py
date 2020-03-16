@@ -239,16 +239,16 @@ def init_logging(args):
     #     fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(filename)s:%(lineno)s)')
     if args.v == 3:
         console.setLevel(logging.DEBUG)
-        fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(pathname)s:%(lineno)s)')
+        fmt = ColorFormatter('[%(levelname)s] %(message)s (%(pathname)s:%(lineno)s)')
     elif args.v == 2:
         console.setLevel(logging.DEBUG)
-        fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(filename)s:%(lineno)s)')
+        fmt = ColorFormatter('[%(levelname)s] %(message)s (%(filename)s:%(lineno)s)')
     elif args.v == 1:
         console.setLevel(logging.DEBUG)
-        fmt = ColorFormatter('[%(levelname)s]: %(message)s')
+        fmt = ColorFormatter('[%(levelname)s] %(message)s')
     else:
-        console.setLevel(logging.INFO)
-        fmt = ColorFormatter('[%(levelname)s]: %(message)s')
+        console.setLevel(logging.DEBUG)
+        fmt = ColorFormatter('[%(levelname)s] %(message)s')
     console.setFormatter(fmt)
     logging.getLogger().addHandler(console)  # add to root logger
 
@@ -455,9 +455,10 @@ def deploy(args):
 
 
 def connect_here(args):
-    print(f"[ INFO ] Connecting remote repository with this one (local)")
+    log.info(f"Connecting remote repository with this one (local)")
     if not is_git_repo(CURDIR):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Current location is not git repository: '{CURDIR.resolve()}'"
+        msg = f"Current location is not git repository: '{CURDIR.resolve()}'"
+        log.critical(msg)
         raise Exception(msg)
 
     selected = select_repo_from_list(
@@ -466,26 +467,26 @@ def connect_here(args):
         repository=args.repository,
         question="Select repo to connect to: ",
     )
-    lineno(f"selected: {selected}")
+    log.debug(f"selected: {selected}")
 
     check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
 
     new_url = f'{SERVER}/{selected.username}/{selected.repository}'
-    print(f"[ INFO ] Connecting '{new_url}'")
+    log.info(f"Connecting '{new_url}'")
 
     repo = Repo(CURDIR)
 
     # Case repo is missing remote, add 'gitea'
     if len(repo.remotes) == 0:
         repo.create_remote('gitea', new_url)
-        print(f"[ DONE ] Done (Created new 'gitea' remote)")
+        log.info(f"Done (Created new 'gitea' remote)")
         return
 
     # Case repo has already some remotes. Go through them, if any 'gitea', ask for rewrite. Add otherwise.
     for remote in repo.remotes:
         if remote.name != 'gitea':
             continue
-        print(f"[ {Yel}WARNING{RCol} ] 'gitea' remote already exists: {remote.url}")
+        log.warning(f"'gitea' remote already exists: {remote.url}")
         questions = [
             {
                 'message': 'Do you want to rewrite the url?',
@@ -496,19 +497,19 @@ def connect_here(args):
         answers = prompt(questions, style=QSTYLE)
         if not answers:
             raise SystemExit
-        lineno(f"answers: {answers}")
+        log.debug(f"answers: {answers}")
 
         if answers.get('continue'):
             remote.set_url(f'{new_url}')
-            print(f"[ DONE ] Remote 'gitea' changed from '{remote.url}' --> '{new_url}'")
+            log.info(f"Remote 'gitea' changed from '{remote.url}' --> '{new_url}'")
             return
         else:
-            print("[ INFO ] Modifying url canceled.")
+            log.info("[odifying url canceled.")
             raise SystemExit
 
-    lineno(f"Neither of the repositories was named 'gitea', adding a new one.")
+    log.debug(f"Neither of the repositories was named 'gitea', adding a new one.")
     repo.create_remote('gitea', new_url)
-    print(f"[ DONE ] Done (Added new 'gitea' remote)")
+    log.info(f"Done (Added new 'gitea' remote)")
     return
 
 
@@ -551,17 +552,17 @@ def create_org(args):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     args.organization = answers.get('organization')
     args.description = answers.get('description')
     args.fullname = answers.get('fullname')
     args.visibility = answers.get('visibility')
 
-    lineno(f"args.reponame: {args.organization}")
-    lineno(f"args.description: {args.description}")
-    lineno(f"args.fullname: {args.fullname}")
-    lineno(f"args.visibility: {args.visibility}")
+    log.debug(f"args.reponame: {args.organization}")
+    log.debug(f"args.description: {args.description}")
+    log.debug(f"args.fullname: {args.fullname}")
+    log.debug(f"args.visibility: {args.visibility}")
 
     repo_data = {
         "description": args.description,
@@ -570,31 +571,35 @@ def create_org(args):
         "username": args.organization,  # THIS is Organization name
         "visibility": args.visibility,
     }
-    lineno(f"repo_data: {repo_data}")
+    log.debug(f"repo_data: {repo_data}")
 
     # Create organization
     res = args.session.post(url=f"{SERVER}/api/v1/orgs", json=repo_data)
-    lineno(f"res: {res}")
+    log.debug(f"res: {res}")
 
     # Viable responses
     if res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Check your GITEA_TOKEN or internet connection."
+        msg = f"Something went wrong. Check your GITEA_TOKEN or internet connection."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.organization}' with the same name already exists."
+        msg = f"Repository '{args.organization}' with the same name already exists."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
-        msg += f"\n{lineno(): >4}.[ {BRed}ERROR{RCol} ] {json.loads(res.content)}"
+        msg = f"Validation Error... Can't create repository with this name. Details bellow."
+        log.critical(msg)
+        msg += f"\n{json.loads(res.content)}"
         raise Exception(msg)
 
     elif res.status_code != 201:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error when trying to create new organization. Status_code: {res.status_code}"
+        msg = f"Unknown error when trying to create new organization. Status_code: {res.status_code}"
+        log.critical(msg)
         raise Exception(msg)
 
-    print(f"[ {BGre}INFO{RCol} ] Done. Organization created.")
+    log.info(f"Done. Organization created.")
 
     return 0
 
@@ -631,15 +636,15 @@ def create_repo(args):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     args.reponame = answers.get('reponame')
     args.description = answers.get('description')
     args.username = answers.get('username')
 
-    lineno(f"args.reponame: {args.reponame}")
-    lineno(f"args.description: {args.description}")
-    lineno(f"args.username: {args.username}")
+    log.debug(f"args.reponame: {args.reponame}")
+    log.debug(f"args.description: {args.description}")
+    log.debug(f"args.username: {args.username}")
 
     repo_data = {
         "name": args.reponame,
@@ -652,56 +657,60 @@ def create_repo(args):
         # "readme": "string"
     }
 
-    lineno(f"repo_data: {repo_data}")
-
+    log.debug(f"repo_data: {repo_data}")
 
     if args.username == getpass.getuser():
         # Creating new repo as normal user
         url = f"{SERVER}/api/v1/user/repos"
     else:
         # User specified different user/org. Only users with admin right can create repos anywhere
-        lineno(f"Using admin args.username: {args.username}")
+        log.debug(f"Using admin args.username: {args.username}")
         url = f"{SERVER}/api/v1/admin/users/{args.username}/repos"
 
-    lineno(f"url: {url}")
+    log.debug(f"url: {url}")
 
     # Post the repo
     res = args.session.post(url=url, json=repo_data)
-    lineno(f"res: {res}")
+    log.debug(f"res: {res}")
 
     # Viable responses
     if res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
+        msg = f"Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}. Something wrong with GITEA_TOKEN. Using admin-command with non-admin token?"
+        msg = f"Status code: {res.status_code}. Something wrong with GITEA_TOKEN. Using admin-command with non-admin token?"
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 409:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{args.reponame}' under '{args.username}' already exists."
+        msg = f"Repository '{args.reponame}' under '{args.username}' already exists."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 422:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Validation Error... Can't create repository with this name. Details bellow."
+        msg = f"Validation Error... Can't create repository with this name. Details bellow."
+        log.critical(msg)
         msg += f"\n{res.json()}"
         raise Exception(msg)
 
     elif res.status_code != 201:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Something went wrong. Don't know what. Status_code: {res.status_code}"
+        msg = f"Something went wrong. Don't know what. Status_code: {res.status_code}"
+        log.critical(msg)
         raise Exception(msg)
 
-    print(f"[ INFO ] Repository created.")
+    url = f"{SERVER}/{args.username}/{args.reponame}"
+    log.info(f"Remote Repository created in '{url}'")
 
     answer = input("Clone into current folder? [Y/n]: ")
     if answer.lower() in ['y', 'yes']:
         target_path = Path(CURDIR.resolve() / args.reponame).resolve()
-        url = f"{SERVER}/{args.username}/{args.reponame}"
-        lineno(f"target_path: {target_path}")
-        lineno(f"url: {url}")
+        log.debug(f"target_path: {target_path}")
+        log.debug(f"url: {url}")
         Repo.clone_from(url=url, to_path=target_path, branch='master', progress=Progress())
 
-    print(f"[ INFO ] DONE")
+    log.info(f"DONE")
     return 0
 
 
@@ -713,7 +722,7 @@ def transfer_repo():
 
 def list_org(args):
     """Function for listing organizations."""
-    lineno(f"Listing organizations")
+    log.debug(f"Listing organizations")
 
     tbl = get_org_list_as_table(args.session, SERVER)
     print(tbl)
@@ -723,7 +732,7 @@ def list_org(args):
 
 def list_repo(args):
     """Function for listing directories."""
-    lineno(f"Listing repository.")
+    log.debug(f"Listing repository.")
     tbl = get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
     print(tbl)
     return
@@ -731,14 +740,14 @@ def list_repo(args):
 
 def clone_repo(args):
     """Clone repo into current directory."""
-    lineno(f"Cloning repository.")
+    log.debug(f"Cloning repository.")
 
     if not args.username:
-        lineno(f"User didn't specify <username>")
+        log.debug(f"User didn't specify <username>")
 
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to clone: ")
-        lineno(f"selected.repository: {selected.repository}")
-        lineno(f"selected.username: {selected.username}")
+        log.debug(f"selected.repository: {selected.repository}")
+        log.debug(f"selected.username: {selected.username}")
 
         args.repository = selected.repository
         args.username = selected.username
@@ -747,29 +756,29 @@ def clone_repo(args):
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
     # Everything OK, clone the repository
-    print(f"[ INFO ] Cloning '{SERVER}/{args.username}/{args.repository}'")
+    log.info(f"Cloning '{SERVER}/{args.username}/{args.repository}'")
 
     target_dir = CURDIR / args.repository
     if target_dir.exists():
-        msg = (f"[ {BRed}ERROR{RCol} ] Folder with the same name '{args.repository}' "
-               f"already in target dir: '{target_dir.resolve()}'")
+        msg = (f"Folder with the same name '{args.repository}' already in target dir: '{target_dir.resolve()}'")
+        log.critical(msg)
         raise Exception(msg)
 
     repo = Repo.clone_from(
         url=f"{SERVER}/{args.username}/{args.repository}",
         to_path=CURDIR / args.repository,
         progress=Progress())
-    print(f"[ {BBla}DEBUG{RCol} ] repo: {repo}")
+    log.debug(f"repo: {repo}")
 
-    print(f"[ INFO ] DONE")
+    log.info(f"DONE")
 
 
 def remove_repo(args):
     """Remove repository from gitea"""
-    lineno(f"Removing repo.")
+    log.debug(f"Removing repo.")
 
     if not args.username:
-        lineno(f"User didn't specify <username>")
+        log.debug(f"User didn't specify <username>")
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to remove: ")
 
         args.repository = selected.repository
@@ -777,92 +786,97 @@ def remove_repo(args):
 
     check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
-    print(f"[ INFO ] You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
+    log.info(f"You are about to REMOVE repository: '{SERVER}/{args.username}/{args.repository}'")
     ask_confirm("Are you SURE you want to do this??? This operation CANNOT be undone!!!")
     ask_confirm_data(f"Enter the repository NAME as confirmation [{args.repository}]", args.repository)
 
     # DELETE the repo
-    print(f"[ INFO ] Removing '{SERVER}/{args.username}/{args.repository}'")
+    log.info(f"Removing '{SERVER}/{args.username}/{args.repository}'")
     res = args.session.delete(url=f"{SERVER}/api/v1/repos/{args.username}/{args.repository}")
-    lineno(f"res: {res}")
+    log.debug(f"res: {res}")
 
     # Case when something is wrong with GITEA_TOKEN...
     if res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized... Something wrong with you GITEA_TOKEN..."
+        msg = f"Unauthorized... Something wrong with you GITEA_TOKEN..."
+        log.critical(msg)
         raise Exception(msg)
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
     elif res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden... You don't have enough permissinons to delete this repository..."
+        msg = f"Forbidden... You don't have enough permissinons to delete this repository..."
+        log.critical(msg)
         raise Exception(msg)
 
-    print(f"[ INFO ] DONE")
+    log.info(f"DONE")
 
     return 0
 
 
 def remove_org(args):
     """Remove organization from gitea"""
-    lineno(f"Removing oranization")
+    log.debug(f"Removing oranization")
 
     org_found = check_org_exist(server=SERVER, organization=args.organization, session=args.session)
-    lineno(f"org_found: {org_found}")
+    log.debug(f"org_found: {org_found}")
 
     if not org_found:
-        lineno(f"User didn't specify <organization>")
+        log.debug(f"User didn't specify <organization>")
 
         selected = select_org_from_list(session=args.session, server=SERVER, question="Select org to remove: ")
-        lineno(f"selected.organization: {selected.organization}")
+        log.debug(f"selected.organization: {selected.organization}")
 
         args.organization = selected.organization
 
     # Everything OK, delete the organization
-    print(f"[ INFO ] You are about to REMOVE organization: '{SERVER}/{args.organization}'")
+    log.info(f"You are about to REMOVE organization: '{SERVER}/{args.organization}'")
 
     ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
     ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
                      comp_str=args.organization)
 
-    print(f"[ INFO ] Deleting organization '{args.organization}'")
+    log.info(f"Deleting organization '{args.organization}'")
 
     url = f"{SERVER}/api/v1/orgs/{args.organization}"
-    lineno(f"url: {url}")
+    log.debug(f"url: {url}")
 
     res = args.session.delete(url)
-    lineno(f"res: {res}")
+    log.debug(f"res: {res}")
 
     if res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unauthorized. You don't have enough rights to delete this repository."
+        msg = f"Unauthorized. You don't have enough rights to delete this repository."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}. Can't remove organization that is not mine. Or other unknown problem."
+        msg = f"Status code: {res.status_code}. Can't remove organization that is not mine. Or other unknown problem."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 500:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] This organization still owns one or more repositories; delete or transfer them first."
+        msg = f"This organization still owns one or more repositories; delete or transfer them first."
+        log.critical(msg)
         raise Exception(msg)
 
     if res.status_code != 204:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for org: '{args.organization}'. Status code: {res.status_code}"
+        msg = f"Unknown error for org: '{args.organization}'. Status code: {res.status_code}"
+        log.critical(msg)
         raise Exception(msg)
 
-    # All ok
-    print(f"[ {BGre}OK{RCol} ] Done. Organization removed.")
+    log.info(f"Done. Organization removed.")
     return 0
 
 
 def edit_desc(args):
     """Edit description in repo."""
-    lineno(f"Editing repository.")
+    log.debug(f"Editing repository.")
 
     if not args.username:
-        lineno(f"User didn't specify <username>")
+        log.debug(f"User didn't specify <username>")
 
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to edit: ")
-        lineno(f"selected.repository: {selected.repository}")
-        lineno(f"selected.username: {selected.username}")
-        lineno(f"selected.description: {selected.description}")
+        log.debug(f"selected.repository: {selected.repository}")
+        log.debug(f"selected.username: {selected.username}")
+        log.debug(f"selected.description: {selected.description}")
 
         args.repository = selected.repository
         args.username = selected.username
@@ -874,7 +888,7 @@ def edit_desc(args):
     args.description = repo.json().get('description')
 
     # Everything OK, edit the repository
-    print(f"[ INFO ] Editing repository: '{SERVER}/{args.username}/{args.repository}'")
+    log.info(f"Editing repository: '{SERVER}/{args.username}/{args.repository}'")
 
     questions = [
         {
@@ -891,7 +905,7 @@ def edit_desc(args):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     args.description = answers.get('description')
     repo_data = {'description': args.description}
@@ -899,21 +913,24 @@ def edit_desc(args):
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
     if res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden... APIForbiddenError is a forbidden error response. Not authorized (weak GITEA_TOKEN)"
+        msg = f"Forbidden... APIForbiddenError is a forbidden error response. Not authorized (weak GITEA_TOKEN)"
+        log.critical(msg)
         raise Exception(msg)
 
     # Case when something is wrong with GITEA_TOKEN...
     elif res.status_code == 422:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] APIValidationError is error format response related to input validation"
+        msg = f"APIValidationError is error format response related to input validation"
+        log.critical(msg)
         raise Exception(msg)
 
     # Other cases should not come
     if res.status_code != 200:
-        lineno(f"args.session.headers: {args.session.headers}")
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Status code: {res.status_code}"
+        log.debug(f"args.session.headers: {args.session.headers}")
+        msg = f"Status code: {res.status_code}"
+        log.critical(msg)
         raise Exception(msg)
 
-    print(f"[ INFO ] DONE")
+    log.info(f"DONE")
 
     return
 
@@ -926,26 +943,26 @@ def update_token(args):
 
     if args.token == '':
         if not settings_file.exists():
-            print(f"[ INFO ] Settings file '{settings_file}' does not exists. Use: --token YOUR_API_KEY")
+            log.info(f"Settings file '{settings_file}' does not exists. Use: --token YOUR_API_KEY")
             return
 
         config.read(settings_file)
         current_token = config['server']['gitea_token']
-        print(f"[ INFO ] Current Gitea token: {current_token}")
+        log.info(f"Current Gitea token: {current_token}")
         return
 
     if not settings_file.exists():
-        print(f"[ INFO ] Creating new {settings_file} with Gitea token: {args.token}")
+        log.info(f"Creating new {settings_file} with Gitea token: {args.token}")
         config['server'] = {'gitea_token': args.token}
         config['app'] = {'debug': False}
     else:
-        lineno(f"Updating value: 'config[server] = {{gitea_token = {args.token}}}'")
+        log.debug(f"Updating value: 'config[server] = {{gitea_token = {args.token}}}'")
         config.read(settings_file)
         current_token = config['server']['gitea_token']
         config['server'] = {'gitea_token': args.token}
         ask_confirm(f"Replace current Gitea token '{current_token}' --> '{args.token}'?")
 
-    lineno(f"Writing config into: {settings_file.resolve()}")
+    log.debug(f"Writing config into: {settings_file.resolve()}")
 
     with open(settings_file, 'w') as f:
         config.write(f)
@@ -974,7 +991,14 @@ def templates(args):
     selected = select_files_from_list(
         directory=templates_dir, question="Select template file to download into current directory")
     log.debug(f"selected: {selected}")
-    shutil.copy(selected.filepath, CURDIR)
+
+    target_filepath = CURDIR / selected.filename
+    if target_filepath.exists():
+        answer = ask_confirm(f"Warning: {target_filepath.name} already exists. Overwrite???")
+        if not answer:
+            log.info(f"File {target_filepath.name} was NOT copied.")
+            return
+    # shutil.copy(selected.filepath, CURDIR)
     log.info(f"File {selected.filename} copied into current directory.")
     return
 
@@ -995,11 +1019,9 @@ if __name__ == '__main__':
     init_file_handlers(args)
     init_logging(args)
 
-    log.debug("--------------------------------------------------------------------------------")
+    log.debug("--------------------------------------------------------------------------------------------")
     log.debug(f"args: {args}")
-    log.debug("--------------------------------------------------------------------------------")
-
-    # if not any(vars(args).values()):
+    log.debug("--------------------------------------------------------------------------------------------")
 
     # In case of no input, show help
     if len(sys.argv) <= 1:

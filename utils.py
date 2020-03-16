@@ -130,12 +130,26 @@ def remove_dir_tree(dirpath):
     return True
 
 
-def lineno(msg: str=None):
+def lineno(msg: str=None) -> str:
+    """Return line number or debug line with line number.
+
+    If <msg> is provided, return string: 'xxxx.[ DEBUG ] <msg>' where xxxx is line number.
+    Else return line number on which this command was called from code.
+
+    Arguments:
+        msg [str] - Message after DEBUG. If msg is None, return only line number
+
+    Usage:
+        >>> lineno("Hi from line 40")
+        "  40.[ DEBUG ] Hi from line 40"  # Where DEBUG is BRIGHT BLACK from Colorama
+        >>> print("Hi there from {lineno()} line")
+        "Hi there from 40 line"
+    """
     if not msg:
         return sys._getframe().f_back.f_lineno
     if not DEBUG:
         return
-    print(f"{sys._getframe().f_back.f_lineno: >4}.[ {BBla}DEBUG{RCol} ]: "
+    print(f"{sys._getframe().f_back.f_lineno: >4}.[ {Fore.BLACK + Style.BRIGHT}DEBUG{Style.RESET_ALL} ]: "
           f"{msg if msg is not None else ''}")
 
 
@@ -204,13 +218,15 @@ def check_user_repo_exist(server: str, repository: str, username: str, session) 
     # Does the username exist?
     res = session.get(f"{server}/api/v1/users/{username}")
     if res.status_code != 200:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] User '{username}' doesn't exist!"
+        msg = f"User '{username}' doesn't exist!"
+        log.critical(msg)
         raise Exception(msg)
 
     # Does the <repository> of <user> exist?
     res = session.get(f"{server}/api/v1/repos/{username}/{repository}")
     if res.status_code != 200:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Repository '{server}/{username}/{repository}' does not exist."
+        msg = f"Repository '{server}/{username}/{repository}' does not exist."
+        log.critical(msg)
         raise Exception(msg)
 
     return True
@@ -232,18 +248,19 @@ def check_org_exist(server: str, organization: str, session) -> bool:
         True
     """
     url = f"{server}/api/v1/orgs/{organization}"
-    lineno(f"url: {url}")
+    log.debug(f"url: {url}")
 
     res = session.get(url)
-    lineno(f"res.status_code: {res.status_code}")
+    log.debug(f"res.status_code: {res.status_code}")
 
     # Case org does not exist
     if res.status_code == 404:
-        print(f"{lineno(): >4}.[ {Yel}WARNING{RCol} ] Organization '{organization}' not found...")
+        log.warning(f"Organization '{organization}' not found...")
         return False
 
     elif res.status_code != 200:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error for organization: '{organization}'"
+        msg = f"Unknown error for organization: '{organization}'"
+        log.critical(msg)
         raise Exception(msg)
 
     return True
@@ -261,7 +278,7 @@ def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str 
         cmd = f'cmd /c "mklink {dst_filepath} {src_filepath}"'
         # powershell
         # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''
-    lineno(f"cmd: '{cmd}'")
+    log.debug(f"cmd: '{cmd}'")
     os.system(cmd)
     return True
 
@@ -278,7 +295,7 @@ def is_git_repo(path: any) -> bool:
 def get_files_as_table(directory: Path, hmmmm=None):
     """Docs."""
     data = [(item.name, item.resolve(), item) for item in directory.iterdir() if item.is_file()]
-    lineno(f"data: {data}")
+    log.debug(f"data: {data}")
 
     tbl_headers = ('filename', 'path')
     results = [
@@ -325,7 +342,7 @@ def select_files_from_list(directory: Path, hmmmm: bool = None, question: str = 
     if not answers:
         raise SystemExit
     answers = [val.strip() for val in answers.get('selected').split()]
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     selected = SelectedFile()
     selected.filename = answers[0]
@@ -357,15 +374,17 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
     """
     url: str = f"{server}/api/v1/repos/search?q={repository}&sort=created&order=desc&limit=50"
     data = session.get(url).json()
-    lineno(f"data.get('ok'): {data.get('ok')}")
+    log.debug(f"data.get('ok'): {data.get('ok')}")
 
     # Check if there was a good response
     if not data.get('ok'):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Shit... Data not acquired... {data}"
+        msg = f"Shit... Data not acquired... {data}"
+        log.critical(msg)
         raise Exception(msg)
 
     if not data.get('data'):
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Search for repository '{repository}' returned 0 results... Try something different."
+        msg = f"Search for repository '{repository}' returned 0 results... Try something different."
+        log.critical(msg)
         raise Exception(msg)
 
     # Data acquired, list all found repos in nice table
@@ -383,8 +402,7 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
             if username.lower() in item['owner']['login'].lower()]
 
         if len(results) == 0:
-            print(f"[ {Yel}WARNING{RCol} ] No repository with += username: '{username}' found. "
-                  f"Listing for all users.")
+            log.warning(f"No repository with += username: '{username}' found. Listing all users.")
 
     if len(results) == 0 or not username:
         results = [
@@ -455,7 +473,7 @@ def select_repo_from_list(session: str, server: str, repository: str,
     if not answers:
         raise SystemExit
     answers = [val.strip() for val in answers.get('selected').split(maxsplit=2)]
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     return Selected(*answers)
 
@@ -480,26 +498,30 @@ def get_org_list_as_table(session, server):
         P135          4
     """
     url = f"{server}/api/v1/admin/orgs"
-    lineno(f"url: '{url}'")
+    log.debug(f"url: '{url}'")
 
     res = session.get(url)
     if res.status_code == 403:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Forbidden. You don't have enough access rights..."
+        msg = f"Forbidden. You don't have enough access rights..."
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 404:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] 404 - url page not found: '{url}'"
+        msg = f"404 - url page not found: '{url}'"
+        log.critical(msg)
         raise Exception(msg)
 
     elif res.status_code == 401:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] 401 - Wrong GITEA_TOKEN or some other problem"
+        msg = f"401 - Wrong GITEA_TOKEN or some other problem"
+        log.critical(msg)
         raise Exception(msg)
 
     if res.status_code != 200:
-        msg = f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] Unknown error. Status Code: {res.status_code}"
+        msg = f"Unknown error. Status Code: {res.status_code}"
+        log.critical(msg)
         raise Exception(msg)
 
-    lineno(f"All ok. Here is the list.")
+    log.debug(f"All ok. Here is the list.")
     data = res.json()
 
     # Data acquired, list all found repos in nice table
@@ -559,7 +581,7 @@ def select_org_from_list(session, server, question):
     answers = prompt(questions, style=QSTYLE)
     if not answers:
         raise SystemExit
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     selected = Selected()
     selected.organization = answers.get('selected')
@@ -579,10 +601,11 @@ def ask_confirm(msg):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     if not answers.get('continue'):
-        raise SystemExit(f"[ INFO ] Aborting...")
+        log.info(f"Aborting...")
+        raise SystemExit
 
     return True
 
@@ -600,15 +623,16 @@ def ask_confirm_data(msg, comp_str):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     if not answers.get('result'):
-        raise SystemExit(f"[ INFO ] Aborting...")
+        log.info(f"Aborting...")
+        raise SystemExit
 
     answer = answers.get('result')
     if not answer == comp_str:
-        msg = (f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] "
-               f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting...")
+        msg = f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting..."
+        log.critical(msg)
         raise Exception(msg)
 
     return True
@@ -627,15 +651,16 @@ def ask_confirm_from_list(msg, comp_str):
     if not answers:
         raise SystemExit
 
-    lineno(f"answers: {answers}")
+    log.debug(f"answers: {answers}")
 
     if not answers.get('result'):
-        raise SystemExit(f"[ INFO ] Aborting...")
+        log.info(f"Aborting...")
+        raise SystemExit
 
     answer = answers.get('result')
     if not answer == comp_str:
-        msg = (f"{lineno(): >4}.[ {BRed}ERROR{RCol} ] "
-               f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting...")
+        msg = f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting..."
+        log.critical(msg)
         raise Exception(msg)
 
     return True
