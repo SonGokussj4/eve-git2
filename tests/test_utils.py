@@ -1,12 +1,10 @@
 import os
-import utils
 import pytest
 from io import StringIO
 from pathlib import Path
 
-SCRIPTDIR = Path(__file__).resolve().parent
-TEST_FILES = SCRIPTDIR / 'files'
-
+import utils
+from tests import SCRIPTDIR, TEST_FILES
 
 # def test_ask_with_defaults_true(monkeypatch):
 #     # monkeypatch.setattr('sys.stdin', StringIO('\n'.join(('first', 'second', ' '))))
@@ -66,7 +64,27 @@ def test_requirements_similar_src_missing():
         TEST_FILES / 'not_a_file', TEST_FILES / 'requirements_DST.txt')
 
 
-@pytest.mark.custom
+# @pytest.mark.custom
 def test_requirements_similar_dst_missing():
     assert False is utils.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'not_a_file')
+
+
+@pytest.mark.custom
+def test_app_conf_params__python__simple_params():
+    config = utils.app_conf_params(TEST_FILES / 'python_app.conf')
+    assert config['Repo']['Framework'] == 'python3.7eve'
+    assert config['venv']['ld_lib'] == '/path/to/LD_LIBRARIES'
+
+
+@pytest.mark.custom
+def test_app_conf_params__python__bool():
+    config = utils.app_conf_params(TEST_FILES / 'python_app.conf')
+    assert config['venv'].getboolean('create') is True
+
+
+@pytest.mark.custom
+def test_app_conf_params__python__list():
+    config = utils.app_conf_params(TEST_FILES / 'python_app.conf')
+    ls = [item for item in config['Executable'].keys()]
+    assert ls == ['run.sh', 'hmm.lol']
