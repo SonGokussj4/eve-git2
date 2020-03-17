@@ -331,9 +331,6 @@ def deploy(args):
     tmp_dir = Path('/tmp') / args.repository
     target_dir = SKRIPTY_DIR / args.repository
 
-    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
-    ask_confirm(f"Are you SURE?")
-
     # Remove existing /tmp/{repository} folder
     if tmp_dir.exists():
         log.warning(f"'{tmp_dir}' already exists. Removing.")
@@ -341,7 +338,6 @@ def deploy(args):
         log.debug(f"removed: {removed}")
 
     log.info(f"Clonning to '{tmp_dir}'...")
-
     tmp_repo = Repo.clone_from(url=url, to_path=tmp_dir, branch=args.branch, depth=1, progress=Progress())
 
     # Remove .git folder in /tmp repo
@@ -351,8 +347,24 @@ def deploy(args):
 
     # Load app.conf from project root directory
     log.debug(f"Checking for 'app.conf'")
-    app_conf_filepath = tmp_dir / 'app.conf'
+    # app_conf_filepath = tmp_dir / 'app.conf'
+    app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/app.conf')
     ignore_venv = True
+
+    app_conf = app_conf_params(app_conf_filepath)
+    if app_conf:
+        log.info("========== app.conf parameters ==========")
+        log.info(f"Program framework: {app_conf.framework}")
+        log.info(f"Make these as links: {app_conf.links}")
+        log.info(f"Make these executable: {app_conf.executables}")
+
+        log.info(f"Create virtual environment: {app_conf.create_venv}")
+        log.info(f"Virtual environment folder: {app_conf.venv_name}")
+        log.info(f"Main script file: {app_conf.main_file}")
+        log.info(f"LD_LIBRARY path: {app_conf.ld_lib}")
+        log.info("========== app.conf parameters ==========")
+
+    raise SystemExit
 
     if app_conf_filepath.exists():
         log.debug(f"'{app_conf_filepath}' found. Loading config.")
@@ -424,10 +436,14 @@ def deploy(args):
     # Case app.conf file was not found in project
     else:
         log.info(f"'{app_conf_filepath}' not found... Ignoring making executables, symlinks, ...")
-        log.info(f"To create a app.conf.template, use 'eve-git template app.conf'")
+        log.info(f"To get a app.conf.template, use 'eve-git template app.conf'")
 
     # Rsync all the data
     log.debug(f"ignore_venv: '{ignore_venv}'")
+
+    # Ask user if he's certain to deploy
+    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    ask_confirm(f"Are you SURE?")
 
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
@@ -966,23 +982,6 @@ def update_token(args):
 
     with open(settings_file, 'w') as f:
         config.write(f)
-
-    # In [69]: user
-    # Out[69]: ConfigObj({'debug': 'True', 'main_file': 'main.py', 'venv': {'use': 'True'}})
-
-    # In [70]: n = NestedNamespace(user)
-
-    # In [71]: n
-    # Out[71]: NestedNamespace(debug='True', main_file='main.py', venv=NestedNamespace(use='True'))
-
-    # In [72]: n.debug
-    # Out[72]: 'True'
-
-    # In [73]: n.venv
-    # Out[73]: NestedNamespace(use='True')
-
-    # In [74]: n.venv.use
-    # Out[74]: 'True'
 
 
 def templates(args):

@@ -8,13 +8,14 @@ import filecmp
 import requests
 import configparser
 # from collections import namedtuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from columnar import columnar
 from colorama import Style, Fore
 from types import SimpleNamespace
 # from autologging import logged, traced
 from PyInquirer import style_from_dict, Token, prompt, Separator
+from configobj import ConfigObj
 
 import logging
 log = logging.getLogger(__name__)
@@ -49,6 +50,30 @@ class SelectedFile:
     filepath: str = ''
 
 
+@dataclass
+class AppConfig:
+    conf_file: configparser.ConfigParser
+    framework: str = ''
+    links: list = field(default_factory=list)
+    executables: list = field(default_factory=list)
+    create_venv: bool = False
+    venv_name: str = '.env'
+    main_file: str = ''
+    ld_lib: str = ''
+
+
+class NestedNamespace(SimpleNamespace):
+    """conf = NestedNamespace({'key': 'val', 'section': {'use': 'True'}})."""
+
+    def __init__(self, dictionary, **kwargs):
+        super().__init__(**kwargs)
+        for key, value in dictionary.items():
+            if isinstance(value, dict):
+                self.__setattr__(key, NestedNamespace(value))
+            else:
+                self.__setattr__(key, value)
+
+
 # ==============================
 # =           COLORS           =
 # ==============================
@@ -70,24 +95,27 @@ QSTYLE = style_from_dict({
 })
 
 
-# ===============================
-# =           CLASSES           =
-# ===============================
-class NestedNamespace(SimpleNamespace):
-    """conf = NestedNamespace({'key': 'val', 'section': {'use': 'True'}})."""
-
-    def __init__(self, dictionary, **kwargs):
-        super().__init__(**kwargs)
-        for key, value in dictionary.items():
-            if isinstance(value, dict):
-                self.__setattr__(key, NestedNamespace(value))
-            else:
-                self.__setattr__(key, value)
-
-
 # =================================
 # =           FUNCTIONS           =
 # =================================
+def app_conf_params(filepath: Path) -> dict:
+    """Docstring."""
+    config = configparser.ConfigParser(allow_no_value=True)
+    config.read(filepath)
+    app_conf = AppConfig(config)
+    venv_section = config['Venv']
+
+    app_conf.framework = config['Repo'].get('framework', app_conf.framework)
+    app_conf.links = {key: item for key, item in config['Link'].items()}
+    app_conf.executables = [item for item in config['Executable'].keys()]
+
+    app_conf.create_venv = venv_section.getboolean('create', app_conf.create_venv)
+    app_conf.venv_name = venv_section.get('venv_name', app_conf.venv_name)
+    app_conf.main_file = venv_section.get('main_file', app_conf.main_file)
+    app_conf.ld_lib = venv_section.get('ld_lib', app_conf.ld_lib)
+    return app_conf
+
+
 def download(url: str, filepath):
     """Docu."""
     if type(filepath) == 'str':
