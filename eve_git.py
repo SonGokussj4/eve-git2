@@ -347,8 +347,8 @@ def deploy(args):
 
     # Load app.conf from project root directory
     log.debug(f"Checking for 'app.conf'")
-    # app_conf_filepath = tmp_dir / 'app.conf'
-    app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/app.conf')
+    app_conf_filepath = tmp_dir / 'app.conf'
+    # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/app.conf')
     ignore_venv = True
 
     app_conf = app_conf_params(app_conf_filepath)

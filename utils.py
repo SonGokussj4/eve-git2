@@ -103,7 +103,10 @@ def app_conf_params(filepath: Path) -> dict:
     config = configparser.ConfigParser(allow_no_value=True)
     config.read(filepath)
     app_conf = AppConfig(config)
-    venv_section = config['Venv']
+    try:
+        venv_section = config['Venv']
+    except KeyError:
+        venv_section = config['venv']
 
     app_conf.framework = config['Repo'].get('framework', app_conf.framework)
     app_conf.links = {key: item for key, item in config['Link'].items()}
