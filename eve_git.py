@@ -126,7 +126,7 @@ if not DEBUG:
 from progress import Progress
 
 LOG_COLORS = {
-    # logging.TRACE: BBla,
+    # logging.TRACE: Fore.LIGHTBLACK_EX,
     logging.DEBUG: Fore.LIGHTBLACK_EX,
     logging.INFO: Style.RESET_ALL,
     logging.WARNING: Fore.YELLOW,
@@ -248,7 +248,7 @@ def init_logging(args):
         fmt = ColorFormatter('[%(levelname)s] %(message)s')
     else:
         console.setLevel(logging.DEBUG)
-        fmt = ColorFormatter('[%(levelname)s] %(message)s')
+        fmt = ColorFormatter('%(message)s')
     console.setFormatter(fmt)
     logging.getLogger().addHandler(console)  # add to root logger
 
@@ -269,11 +269,6 @@ def init_session(args):
 
 def deploy(args):
     log.info(f"Deploying...")
-
-    log.debug(f"args.repository: {args.repository}")
-    log.debug(f"args.username: {args.username}")
-    log.debug(f"args.branch: {args.branch}")
-
     selected = select_repo_from_list(args.session, SERVER, args.repository, args.username,
                                      'Select repository to deploy')
 
@@ -369,17 +364,18 @@ def deploy(args):
     log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
     ask_confirm(f"Are you SURE?")
 
-    # Make all files non-executable
+    # Make all files in root folder non-executable
     log.debug(f"Changing permissions for all files in '{tmp_dir}' to 664")
-    for item in tmp_dir.iterdir():
+    # for item in tmp_dir.glob('**/*'):  # recursive search
+    for item in tmp_dir.iterdir():  # current dir
         item: Path
         if not item.is_file():
             continue
         os.chmod(item, 0o664)
 
     # Make certain files executable
-    for key, val in app_conf.items('Executable'):
-        exe_file = tmp_dir / key
+    for file in app_conf.executables:
+        exe_file = tmp_dir / file
         if not exe_file.exists():
             log.warning(f"File '{exe_file}' does not exist. Check your config in 'app.conf'.")
             continue
@@ -1025,7 +1021,7 @@ if __name__ == '__main__':
     log.debug("--------------------------------------------------------------------------------------------")
     log.debug(f"args: {args}")
     log.debug("--------------------------------------------------------------------------------------------")
-
+    log.trace("HMM LOL")
     # In case of no input, show help
     if len(sys.argv) <= 1:
         log.error(f"No arguments... Showing help.")
