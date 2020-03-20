@@ -351,41 +351,47 @@ def deploy(args):
     # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/app.conf')
     ignore_venv = True
 
+    log.debug(f"'{app_conf_filepath}' found. Loading config.")
     app_conf = app_conf_params(app_conf_filepath)
     if app_conf:
         log.info("========== app.conf parameters ==========")
-        log.info(f"Program framework: {app_conf.framework}")
-        log.info(f"Make these as links: {app_conf.links}")
-        log.info(f"Make these executable: {app_conf.executables}")
+        log.info(f"  Program framework:      {app_conf.framework}")
+        log.info(f"  Make these as links:    {app_conf.links}")
+        log.info(f"  Make these executable:  {app_conf.executables}")
 
-        log.info(f"Create virtual environment: {app_conf.create_venv}")
-        log.info(f"Virtual environment folder: {app_conf.venv_name}")
-        log.info(f"Main script file: {app_conf.main_file}")
-        log.info(f"LD_LIBRARY path: {app_conf.ld_lib}")
+        log.info(f"  Create venv:            {app_conf.create_venv}")
+        log.info(f"  Venv folder name:       {app_conf.venv_name}")
+        log.info(f"  Main script file:       {app_conf.main_file}")
+        log.info(f"  LD_LIBRARY path:        {app_conf.ld_lib}")
         log.info("========== app.conf parameters ==========")
+
+    # Ask user if he's certain to deploy
+    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    ask_confirm(f"Are you SURE?")
+
+    # Make all files non-executable
+    log.debug(f"Changing permissions for all files in '{tmp_dir}' to 664")
+    for item in tmp_dir.iterdir():
+        item: Path
+        if not item.is_file():
+            continue
+        os.chmod(item, 0o664)
+
+    # Make certain files executable
+    for key, val in app_conf.items('Executable'):
+        exe_file = tmp_dir / key
+        if not exe_file.exists():
+            log.warning(f"File '{exe_file}' does not exist. Check your config in 'app.conf'.")
+            continue
+        log.debug(f"Making '{exe_file}' executable... Permissions: 774")
+        os.chmod(exe_file, 0o774)
 
     raise SystemExit
 
     if app_conf_filepath.exists():
-        log.debug(f"'{app_conf_filepath}' found. Loading config.")
-        app_conf = configparser.ConfigParser(allow_no_value=True)
-        app_conf.read(app_conf_filepath)
-
-        # Make files executable
-        log.debug(f"Changing permissions for all files in '{tmp_dir}' to 664")
-        for item in tmp_dir.iterdir():
-            item: Path
-            if not item.is_file():
-                continue
-            os.chmod(item, 0o664)
-
-        for key, val in app_conf.items('Executable'):
-            exe_file = tmp_dir / key
-            if not exe_file.exists():
-                log.warning(f"File '{exe_file}' does not exist. Check your config in 'app.conf'.")
-                continue
-            log.debug(f"Making '{exe_file}' executable... Permissions: 774")
-            os.chmod(exe_file, 0o774)
+        # log.debug(f"'{app_conf_filepath}' found. Loading config.")
+        # app_conf = configparser.ConfigParser(allow_no_value=True)
+        # app_conf.read(app_conf_filepath)
 
         src_requirements = tmp_dir / 'requirements.txt'
         if src_requirements.exists():
@@ -441,9 +447,7 @@ def deploy(args):
     # Rsync all the data
     log.debug(f"ignore_venv: '{ignore_venv}'")
 
-    # Ask user if he's certain to deploy
-    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
-    ask_confirm(f"Are you SURE?")
+
 
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
