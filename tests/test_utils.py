@@ -74,20 +74,20 @@ def test_requirements_similar_dst_missing():
 def test_app_conf_params__python__simple_params():
     conf_file = TEST_FILES / 'python_app.conf'
     config = utils.app_conf_params(conf_file)
-    assert config['Repo']['Framework'] == 'python3.7eve'
-    assert config['Venv']['ld_lib'] == '/path/to/LD_LIBRARIES'
+    assert config.framework == 'python3.7eve'
+    assert config.ld_lib == '/path/to/LD_LIBRARIES'
 
 
 @pytest.mark.custom
 def test_app_conf_params__python__bool():
     conf_file = TEST_FILES / 'python_app.conf'
     config = utils.app_conf_params(conf_file)
-    assert config['Venv'].getboolean('create') is True
+    assert config.create_venv is True
 
 
 @pytest.mark.custom
 def test_app_conf_params__python__list():
     conf_file = TEST_FILES / 'python_app.conf'
     config = utils.app_conf_params(conf_file)
-    ls = [item for item in config['Executable'].keys()]
+    ls = [item for item in config.executables]
     assert ls == ['run.sh', 'hmm.lol']
