@@ -25,7 +25,7 @@ import configparser
 # import subprocess as sp
 from pathlib import Path
 # from dataclasses import dataclass
-import validate
+# import validate
 
 
 # Pip Libs
@@ -34,12 +34,12 @@ import validate
 # import click  # https://pypi.org/project/click/
 import requests
 from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial.html#tutorial-label
-from columnar import columnar  # https://pypi.org/project/Columnar/
+# from columnar import columnar  # https://pypi.org/project/Columnar/
 from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
 # from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
-from configobj import ConfigObj  # http://www.voidspace.org.uk/python/articles/configobj.shtml
+# from configobj import ConfigObj  # http://www.voidspace.org.uk/python/articles/configobj.shtml
 
 
 # User Libs
@@ -125,8 +125,32 @@ if not DEBUG:
 # ===============================
 from progress import Progress
 
+
+# def addLogLevel(levelName, level):
+#     """
+#     Add a new log level.
+
+#     :param levelName: name for the new level
+#     :param level:     integer defining the level
+#     """
+#     n, N = levelName, levelName.upper()
+#     setattr(logging, N, level)
+#     # setattr(logging, N + "_COLOR", color)
+#     logging.addLevelName(level, N)
+#     def display(self, message, *args, **kwargs):
+#         if self.isEnabledFor(level):
+#             self._log(level, message, args, **kwargs)
+#     display.__name__ = n
+#     setattr(logging.Logger, n, display)
+#     logging._levelToName[level] = N
+#     logging._nameToLevel[N] = level
+#     logging.addLogLevel = addLogLevel
+
+
+addLogLevel('trace', 1)
+
 LOG_COLORS = {
-    # logging.TRACE: Fore.LIGHTBLACK_EX,
+    logging.TRACE: Fore.LIGHTBLACK_EX,
     logging.DEBUG: Fore.LIGHTBLACK_EX,
     logging.INFO: Style.RESET_ALL,
     logging.WARNING: Fore.YELLOW,
@@ -149,17 +173,12 @@ class ColorFormatter(logging.Formatter):
                 color_begin=LOG_COLORS[new_record.levelno],
                 color_end=colorama.Style.RESET_ALL,
             )
-            # new_record.lineno = "{color_begin}{lineno}{color_end}".format(
-            #     lineno=new_record.lineno,
-            #     color_begin=LOG_COLORS[new_record.levelno],
-            #     color_end=colorama.Style.RESET_ALL,
-            # )
-            # if new_record.levelno == 10:  # DEBUG - Even MSG colored
-            #     new_record.msg = "{color_begin}{msg}{color_end}".format(
-            #         msg=new_record.msg,
-            #         color_begin=LOG_COLORS[new_record.levelno],
-            #         color_end=colorama.Style.RESET_ALL,
-            #     )
+            if new_record.levelno == 1:  # TRACE - MSG colored
+                new_record.msg = "{color_begin}{msg}{color_end}".format(
+                    msg=new_record.msg,
+                    color_begin=LOG_COLORS[new_record.levelno],
+                    color_end=colorama.Style.RESET_ALL,
+                )
         # now we can let standart formatting take care of the rest
         return super(ColorFormatter, self).format(new_record, *args, **kwargs)
 
@@ -175,7 +194,7 @@ class NoColorFormatter(logging.Formatter):
                 [0-?]*  # Parameter bytes
                 [ -/]*  # Intermediate bytes
                 [@-~]   # Final byte
-            )
+            (?# (?# (?# (?# (?# ))))))
         ''', re.VERBOSE)
         new_record = copy.copy(record)
         new_record.msg = ansi_escape.sub("", new_record.msg)
@@ -238,7 +257,7 @@ def init_logging(args):
     #     console.setLevel(logging.NOTSET)
     #     fmt = ColorFormatter('[%(levelname)s]: %(message)s (%(filename)s:%(lineno)s)')
     if args.v == 3:
-        console.setLevel(logging.DEBUG)
+        console.setLevel(logging.TRACE)
         fmt = ColorFormatter('[%(levelname)s] %(message)s (%(pathname)s:%(lineno)s)')
     elif args.v == 2:
         console.setLevel(logging.DEBUG)
@@ -247,7 +266,7 @@ def init_logging(args):
         console.setLevel(logging.DEBUG)
         fmt = ColorFormatter('[%(levelname)s] %(message)s')
     else:
-        console.setLevel(logging.DEBUG)
+        console.setLevel(logging.INFO)
         fmt = ColorFormatter('%(message)s')
     console.setFormatter(fmt)
     logging.getLogger().addHandler(console)  # add to root logger
@@ -340,16 +359,16 @@ def deploy(args):
     log.debug(f"Removing '{tmp_repo.git_dir}'")
     remove_dir_tree(tmp_repo.git_dir)
 
-    # Load app.conf from project root directory
-    log.debug(f"Checking for 'app.conf'")
-    app_conf_filepath = tmp_dir / 'app.conf'
-    # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/app.conf')
+    # Load deploy.conf from project root directory
+    log.debug(f"Checking for 'deploy.conf'")
+    app_conf_filepath = tmp_dir / 'deploy.conf'
+    # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/deploy.conf')
     ignore_venv = True
 
     log.debug(f"'{app_conf_filepath}' found. Loading config.")
     app_conf = app_conf_params(app_conf_filepath)
     if app_conf:
-        log.info("========== app.conf parameters ==========")
+        log.info("========== deploy.conf parameters ==========")
         log.info(f"  Program framework:      {app_conf.framework}")
         log.info(f"  Make these as links:    {app_conf.links}")
         log.info(f"  Make these executable:  {app_conf.executables}")
@@ -358,7 +377,7 @@ def deploy(args):
         log.info(f"  Venv folder name:       {app_conf.venv_name}")
         log.info(f"  Main script file:       {app_conf.main_file}")
         log.info(f"  LD_LIBRARY path:        {app_conf.ld_lib}")
-        log.info("========== app.conf parameters ==========")
+        log.info("========== deploy.conf parameters ==========")
 
     # Ask user if he's certain to deploy
     log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
@@ -377,7 +396,7 @@ def deploy(args):
     for file in app_conf.executables:
         exe_file = tmp_dir / file
         if not exe_file.exists():
-            log.warning(f"File '{exe_file}' does not exist. Check your config in 'app.conf'.")
+            log.warning(f"File '{exe_file}' does not exist. Check your config in 'deploy.conf'.")
             continue
         log.debug(f"Making '{exe_file}' executable... Permissions: 774")
         os.chmod(exe_file, 0o774)
@@ -392,7 +411,7 @@ def deploy(args):
         src_requirements = tmp_dir / 'requirements.txt'
         if src_requirements.exists():
             dst_requirements = target_dir / 'requirements.txt'
-            # Check if requirements.txt / app.conf are different
+            # Check if requirements.txt / deploy.conf are different
             ignore_venv = requirements_similar(src_requirements, dst_requirements)
             log.debug(f"ignore_venv: {ignore_venv}")
 
@@ -435,10 +454,10 @@ def deploy(args):
             log.info(f"Linking '{src_filepath}' --> '{dst_filepath}'")
             make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
 
-    # Case app.conf file was not found in project
+    # Case deploy.conf file was not found in project
     else:
         log.info(f"'{app_conf_filepath}' not found... Ignoring making executables, symlinks, ...")
-        log.info(f"To get a app.conf.template, use 'eve-git template app.conf'")
+        log.info(f"To get a deploy.conf.template, use 'eve-git template deploy.conf'")
 
     # Rsync all the data
     log.debug(f"ignore_venv: '{ignore_venv}'")
@@ -1021,7 +1040,7 @@ if __name__ == '__main__':
     log.debug("--------------------------------------------------------------------------------------------")
     log.debug(f"args: {args}")
     log.debug("--------------------------------------------------------------------------------------------")
-    log.trace("HMM LOL")
+
     # In case of no input, show help
     if len(sys.argv) <= 1:
         log.error(f"No arguments... Showing help.")

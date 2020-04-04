@@ -98,25 +98,46 @@ QSTYLE = style_from_dict({
 # =================================
 # =           FUNCTIONS           =
 # =================================
-def app_conf_params(filepath: Path) -> dict:
+def addLogLevel(levelName, level):
+    """
+    Add a new log level.
+
+    :param levelName: name for the new level
+    :param level:     integer defining the level
+    """
+    n, N = levelName, levelName.upper()
+    setattr(logging, N, level)
+    # setattr(logging, N + "_COLOR", color)
+    logging.addLevelName(level, N)
+    def display(self, message, *args, **kwargs):
+        if self.isEnabledFor(level):
+            self._log(level, message, args, **kwargs)
+    display.__name__ = n
+    setattr(logging.Logger, n, display)
+    logging._levelToName[level] = N
+    logging._nameToLevel[N] = level
+    logging.addLogLevel = addLogLevel
+
+
+def deploy_conf_params(filepath: Path) -> dict:
     """Docstring."""
     config = configparser.ConfigParser(allow_no_value=True)
     config.read(filepath)
-    app_conf = AppConfig(config)
+    deploy_conf = AppConfig(config)
     try:
         venv_section = config['Venv']
     except KeyError:
         venv_section = config['venv']
 
-    app_conf.framework = config['Repo'].get('framework', app_conf.framework)
-    app_conf.links = {key: item for key, item in config['Link'].items()}
-    app_conf.executables = [item for item in config['Executable'].keys()]
+    deploy_conf.framework = config['Repo'].get('framework', deploy_conf.framework)
+    deploy_conf.links = {key: item for key, item in config['Link'].items()}
+    deploy_conf.executables = [item for item in config['Executable'].keys()]
 
-    app_conf.create_venv = venv_section.getboolean('create', app_conf.create_venv)
-    app_conf.venv_name = venv_section.get('venv_name', app_conf.venv_name)
-    app_conf.main_file = venv_section.get('main_file', app_conf.main_file)
-    app_conf.ld_lib = venv_section.get('ld_lib', app_conf.ld_lib)
-    return app_conf
+    deploy_conf.create_venv = venv_section.getboolean('create', deploy_conf.create_venv)
+    deploy_conf.venv_name = venv_section.get('venv_name', deploy_conf.venv_name)
+    deploy_conf.main_file = venv_section.get('main_file', deploy_conf.main_file)
+    deploy_conf.ld_lib = venv_section.get('ld_lib', deploy_conf.ld_lib)
+    return deploy_conf
 
 
 def download(url: str, filepath):
@@ -642,6 +663,7 @@ def ask_confirm(msg):
 
 
 def ask_confirm_data(msg, comp_str):
+    """This is my docstring that was missing..."""
     questions = [
         {
             'message': msg,
