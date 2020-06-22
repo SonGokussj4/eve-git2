@@ -45,6 +45,7 @@ from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # 
 # User Libs
 #===========
 import cli
+import utils as utl
 from utils import *
 
 
@@ -184,6 +185,7 @@ class ColorFormatter(logging.Formatter):
 
 
 class NoColorFormatter(logging.Formatter):
+    """More info: https://stackoverflow.com/a/14693789/4574809."""
     def format(self, record):
         ansi_escape = re.compile(r'''
             \x1B  # ESC
@@ -194,7 +196,7 @@ class NoColorFormatter(logging.Formatter):
                 [0-?]*  # Parameter bytes
                 [ -/]*  # Intermediate bytes
                 [@-~]   # Final byte
-            (?# (?# (?# (?# (?# ))))))
+            )
         ''', re.VERBOSE)
         new_record = copy.copy(record)
         new_record.msg = ansi_escape.sub("", new_record.msg)
@@ -288,7 +290,7 @@ def init_session(args):
 
 def deploy(args):
     log.info(f"Deploying...")
-    selected = select_repo_from_list(args.session, SERVER, args.repository, args.username,
+    selected = utl.select_repo_from_list(args.session, SERVER, args.repository, args.username,
                                      'Select repository to deploy')
 
     args.repository = selected.repository
@@ -768,7 +770,7 @@ def list_org(args):
 def list_repo(args):
     """Function for listing directories."""
     log.debug(f"Listing repository.")
-    tbl = get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
+    tbl = utl.get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
     print(tbl)
     return
 
