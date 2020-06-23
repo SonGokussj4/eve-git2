@@ -539,7 +539,7 @@ def connect_here(args):
             log.info(f"Remote 'gitea' changed from '{remote.url}' --> '{new_url}'")
             return
         else:
-            log.info("[odifying url canceled.")
+            log.info("Modifying url canceled.")
             raise SystemExit
 
     log.debug(f"Neither of the repositories was named 'gitea', adding a new one.")
@@ -752,7 +752,8 @@ def create_repo(args):
 
 def transfer_repo(args):
     """To transfer repo to different user/organization."""
-    print(f'args: {args}')
+    # TODO zkontrolovat user/reponame/targetname
+
     if not args.repository:
         log.debug(f"User didn't specify <repository>")
 
@@ -760,6 +761,7 @@ def transfer_repo(args):
         log.debug(f"selected.repository: {selected.repository}")
 
         args.repository = selected.repository
+        args.username = selected.username
 
     if not args.target:
         log.debug(f"User didn't specify <target>")
@@ -769,8 +771,26 @@ def transfer_repo(args):
 
         args.target = selected.organization
 
-    print(f'args: {args}')
-    pass
+    else:
+        if not check_org_exist(SERVER, args.target, args.session):
+            log.critical("Entered org/user not found. Exitting app")
+            raise SystemExit()
+
+    # # Check if 'user' and combination of 'user/repo' exist
+    # check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+
+    # Everything OK, transfer the repository
+    log.info(f"Transfering '{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer'")
+    url = f"{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer"
+    repo_data = {
+        "new_owner": args.target,
+        # "team_ids": [
+        #     0
+        # ]
+    }
+    res = args.session.post(url=url, json=repo_data)
+    log.debug(f"res: {res}")
+    return 0
 
 
 def list_org(args):
