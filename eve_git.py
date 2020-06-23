@@ -750,9 +750,26 @@ def create_repo(args):
     return 0
 
 
-def transfer_repo():
-    """To tranfer repo to some organization"""
-    # TODO: bude ve verzi 1.12.0
+def transfer_repo(args):
+    """To transfer repo to different user/organization."""
+    print(f'args: {args}')
+    if not args.repository:
+        log.debug(f"User didn't specify <repository>")
+
+        selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to transfer: ")
+        log.debug(f"selected.repository: {selected.repository}")
+
+        args.repository = selected.repository
+
+    if not args.target:
+        log.debug(f"User didn't specify <target>")
+
+        selected = select_org_from_list(args.session, SERVER, "Select Organization")
+        log.debug(f"selected.repository: {selected.repository}")
+
+        args.target = selected.organization
+
+    print(f'args: {args}')
     pass
 
 
@@ -861,7 +878,7 @@ def remove_org(args):
         selected = select_org_from_list(session=args.session, server=SERVER, question="Select org to remove: ")
         log.debug(f"selected.organization: {selected.organization}")
 
-        args.organization = selected.organization
+        args.organization = selected.ororganizationganization
 
     # Everything OK, delete the organization
     log.info(f"You are about to REMOVE organization: '{SERVER}/{args.organization}'")

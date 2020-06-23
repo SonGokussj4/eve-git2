@@ -270,3 +270,4 @@ venv/
 eve-git2.sublime-workspace
 eve-git2.sublime-project
 .coverage
+tests/htmlcov/
