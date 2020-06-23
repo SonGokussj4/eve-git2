@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # configFileName='${configFileName}'
-configFileName='app.conf'
+configFileName='deploy.conf'
 
 ## FIND DIRECTORY OF THE SCRIPT
 SOURCE="${BASH_SOURCE[0]}"

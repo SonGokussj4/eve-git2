@@ -46,7 +46,7 @@ from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # 
 #===========
 import cli
 import utils as utl
-from utils import *
+from utils import *  # FIXME Predelat na import utils jen
 
 
 # ==============================
@@ -464,8 +464,6 @@ def deploy(args):
     # Rsync all the data
     log.debug(f"ignore_venv: '{ignore_venv}'")
 
-
-
     # Case venv was created, copy all the data, even venv, because something was updated
     if not ignore_venv:
         if os.name != 'nt':
@@ -717,7 +715,8 @@ def create_repo(args):
         raise Exception(msg)
 
     elif res.status_code == 403:
-        msg = f"Status code: {res.status_code}. Something wrong with GITEA_TOKEN. Using admin-command with non-admin token?"
+        msg = (f"Status code: {res.status_code}. Something wrong with GITEA_TOKEN. "
+               "Using admin-command with non-admin token?")
         log.critical(msg)
         raise Exception(msg)
 
@@ -1048,7 +1047,7 @@ if __name__ == '__main__':
         log.error(f"No arguments... Showing help.")
         print()
         parser.print_help()
-        sys.exit()
+        raise SystemExit
 
     if args.token is not None:
         update_token(args)

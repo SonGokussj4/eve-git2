@@ -109,9 +109,11 @@ def addLogLevel(levelName, level):
     setattr(logging, N, level)
     # setattr(logging, N + "_COLOR", color)
     logging.addLevelName(level, N)
+
     def display(self, message, *args, **kwargs):
         if self.isEnabledFor(level):
             self._log(level, message, args, **kwargs)
+
     display.__name__ = n
     setattr(logging.Logger, n, display)
     logging._levelToName[level] = N
@@ -404,7 +406,7 @@ def select_files_from_list(directory: Path, hmmmm: bool = None, question: str = 
 
 
 def get_repo_list_as_table(session: requests.Session(), server: str,
-                           repository: str, username: str='') -> columnar:
+                           repository: str, username: str="") -> columnar:
     """Return columnar() table object with list of repositories using gitea api.
 
     Sorted by: 'created' descending.
@@ -432,12 +434,12 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
     if not data.get('ok'):
         msg = f"Shit... Data not acquired... {data}"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     if not data.get('data'):
         msg = f"Search for repository '{repository}' returned 0 results... Try something different."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     # Data acquired, list all found repos in nice table
     tbl_headers = ('repository', 'user', 'description')
@@ -523,7 +525,7 @@ def select_repo_from_list(session: str, server: str, repository: str,
     answers = prompt(questions, style=QSTYLE)
 
     if not answers:
-        raise SystemExit
+        raise SystemExit()
     answers = [val.strip() for val in answers.get('selected').split(maxsplit=2)]
     log.debug(f"answers: {answers}")
 
@@ -556,22 +558,22 @@ def get_org_list_as_table(session, server):
     if res.status_code == 403:
         msg = f"Forbidden. You don't have enough access rights..."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 404:
         msg = f"404 - url page not found: '{url}'"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 401:
         msg = f"401 - Wrong GITEA_TOKEN or some other problem"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     if res.status_code != 200:
         msg = f"Unknown error. Status Code: {res.status_code}"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     log.debug(f"All ok. Here is the list.")
     data = res.json()
@@ -632,7 +634,7 @@ def select_org_from_list(session, server, question):
 
     answers = prompt(questions, style=QSTYLE)
     if not answers:
-        raise SystemExit
+        raise SystemExit()
     log.debug(f"answers: {answers}")
 
     selected = Selected()
@@ -651,13 +653,13 @@ def ask_confirm(msg):
     answers = prompt(questions, style=QSTYLE)
 
     if not answers:
-        raise SystemExit
+        raise SystemExit()
 
     log.debug(f"answers: {answers}")
 
     if not answers.get('continue'):
         log.info(f"Aborting...")
-        raise SystemExit
+        raise SystemExit()
 
     return True
 
@@ -674,19 +676,19 @@ def ask_confirm_data(msg, comp_str):
     answers = prompt(questions, style=QSTYLE)
 
     if not answers:
-        raise SystemExit
+        raise SystemExit()
 
     log.debug(f"answers: {answers}")
 
     if not answers.get('result'):
         log.info(f"Aborting...")
-        raise SystemExit
+        raise SystemExit()
 
     answer = answers.get('result')
     if not answer == comp_str:
         msg = f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting..."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     return True
 
