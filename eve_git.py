@@ -45,6 +45,8 @@ from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # 
 # User Libs
 #===========
 import cli
+import utils
+
 import utils as utl
 from utils import *  # FIXME Predelat na import utils jen
 
@@ -290,8 +292,8 @@ def init_session(args):
 
 def deploy(args):
     log.info(f"Deploying...")
-    selected = utl.select_repo_from_list(args.session, SERVER, args.repository, args.username,
-                                     'Select repository to deploy')
+    selected = utl.select_repo_from_list(
+        args.session, SERVER, args.repository, args.username, 'Select repository to deploy')
 
     args.repository = selected.repository
     args.username = selected.username
@@ -763,18 +765,26 @@ def transfer_repo(args):
         args.repository = selected.repository
         args.username = selected.username
 
-    if not args.target:
-        log.debug(f"User didn't specify <target>")
+    if not args.username:
+        log.debug(f"User didn't specify <username>")
 
-        selected = select_org_from_list(args.session, SERVER, "Select Organization")
+        selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to transfer: ")
         log.debug(f"selected.repository: {selected.repository}")
 
-        args.target = selected.organization
+        args.username = selected.username
 
-    else:
-        if not check_org_exist(SERVER, args.target, args.session):
-            log.critical("Entered org/user not found. Exitting app")
-            raise SystemExit()
+    if not args.new_owner:
+        log.debug(f"User didn't specify <new_owner>")
+
+        selected = utils.select_owner_from_list(args.session, SERVER, args.new_owner, "Select New Owner: ")
+        log.debug(f"selected.repository: {selected.repository}")
+
+        args.new_owner = selected.owner
+
+    # else:
+    #     if not check_org_exist(SERVER, args.target, args.session):
+    #         log.critical("Entered org/user not found. Exitting app")
+    #         raise SystemExit()
 
     # # Check if 'user' and combination of 'user/repo' exist
     # check_user_repo_exist(SERVER, args.repository, args.username, args.session)
@@ -783,13 +793,38 @@ def transfer_repo(args):
     log.info(f"Transfering '{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer'")
     url = f"{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer"
     repo_data = {
-        "new_owner": args.target,
+        "new_owner": args.new_owner,
         # "team_ids": [
         #     0
         # ]
     }
+
+    log.debug(f"url: '{url}'")
+    log.debug(f"repo_data: '{repo_data}'")
+    # raise SystemExit("User exit")
     res = args.session.post(url=url, json=repo_data)
     log.debug(f"res: {res}")
+
+    # Case when normal user tries to transfer repository and doesn't have authorization
+    if res.status_code == 403:
+        msg = f"Forbidden... You don't have enough permissinons to transfer this repository..."
+        log.critical(msg)
+        raise SystemExit()
+
+    # Case something wrong with json data?
+    elif res.status_code == 422:
+        msg = f"Validation error - something wrong with input validation"
+        log.critical(msg)
+        raise SystemExit()
+
+    elif res.status_code == 404:
+        msg = f"Not Found - empty response"
+        log.critical(msg)
+        raise SystemExit()
+
+    # All ok - response 202
+    log.info(f"DONE")
+
     return 0
 
 

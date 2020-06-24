@@ -160,7 +160,8 @@ Description:
     # TRANSFER
     parser_transfer = subparsers.add_parser('transfer', help='Transfer repository to different User/Group', parents=[common])
     parser_transfer.add_argument('repository', nargs='?', default='', help='Specify Repository for transfer')
-    parser_transfer.add_argument('target', nargs='?', default='', help='Specify target User/Org')
+    parser_transfer.add_argument('username', nargs='?', default='', help='Specify User/Org')
+    parser_transfer.add_argument('new_owner', nargs='?', default='', help='Specify target User/Org')
     parser_transfer.formatter_class = CustomHelpFormatter
     parser_transfer.set_defaults(func=eve_git.transfer_repo)
 

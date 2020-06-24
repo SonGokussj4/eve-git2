@@ -42,6 +42,7 @@ class Selected:
     username: str = ''
     description: str = ''
     organization: str = ''
+    owner: str = ''
 
 
 @dataclass
@@ -184,7 +185,7 @@ def remove_dir_tree(dirpath):
     return True
 
 
-def lineno(msg: str=None) -> str:
+def lineno(msg: str = None) -> str:
     """Return line number or debug line with line number.
 
     If <msg> is provided, return string: 'xxxx.[ DEBUG ] <msg>' where xxxx is line number.
@@ -406,7 +407,7 @@ def select_files_from_list(directory: Path, hmmmm: bool = None, question: str = 
 
 
 def get_repo_list_as_table(session: requests.Session(), server: str,
-                           repository: str, username: str="") -> columnar:
+                           repository: str, username: str = "") -> columnar:
     """Return columnar() table object with list of repositories using gitea api.
 
     Sorted by: 'created' descending.
@@ -470,6 +471,33 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
     return columnar(results, tbl_headers, no_borders=True, wrap_max=0)
 
 
+def select_owner_from_list(session: str, server: str, owner: str = '', question: str = '') -> Selected:
+    """Docstring."""
+    tbl = get_owner_list_as_table(session, server)
+
+    tbl_as_string = tbl.split('\n')
+    table_header, table_body = tbl_as_string[1], tbl_as_string[3:-1]
+    repo_list = [{'name': item} for item in table_body]
+    choices = [Separator(f"\n   {table_header}\n")]
+    choices.extend(repo_list)
+    choices.append(Separator('\n'))
+    questions = [{
+        'message': question,
+        'name': 'selected',
+        'type': 'list',
+        'choices': choices,
+        'pageSize': 50,
+    }]
+    answers = prompt(questions, style=QSTYLE)
+    if not answers:
+        raise SystemExit()
+
+    answers = [val.strip() for val in answers.get('selected').split(maxsplit=2)]
+    log.debug(f"answers: {answers}")
+
+    return Selected(owner=answers[0])
+
+
 def select_repo_from_list(session: str, server: str, repository: str,
                           username: str = '', question: str = '') -> Selected:
     """Make columnar() table selectable, return Selected().
@@ -530,6 +558,51 @@ def select_repo_from_list(session: str, server: str, repository: str,
     log.debug(f"answers: {answers}")
 
     return Selected(*answers)
+
+
+def get_owner_list_as_table(session, server):
+    """Return columnar() table object with list of organizations and users using gitea api."""
+    # Get all organizations
+    url_orgs = f"{server}/api/v1/admin/orgs"
+    log.debug(f"url_orgs: '{url_orgs}'")
+    res_orgs = session.get(url_orgs)
+
+    log.debug(f"Orgs: All ok. Here is the list.")
+    data_orgs = res_orgs.json()
+
+    # Get all users
+    url_users = f"{server}/api/v1/admin/users"
+    log.debug(f"url_users: '{url_users}'")
+    res_users = session.get(url_users)
+
+    log.debug(f"Users: All ok. Here is the list.")
+    data_users = res_users.json()
+
+    # Data acquired, list all found repos in nice table
+    headers = ('Owner', 'Num Repos', 'description')
+
+    results_orgs = [
+        [
+            item['username'],
+            len(session.get(f"{server}/api/v1/orgs/{item['username']}/repos").json()),
+            item['description']
+        ]
+        for item in data_orgs
+    ]
+    results_users = [
+        [
+            item['username'],
+            len(session.get(f"{server}/api/v1/users/{item['username']}/repos").json()),
+            ''
+        ]
+        for item in data_users
+    ]
+
+    results = []
+    results.extend(results_orgs)
+    results.extend(results_users)
+
+    return columnar(results, headers, no_borders=True)
 
 
 def get_org_list_as_table(session, server):
