@@ -369,19 +369,25 @@ def deploy(args):
     # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/deploy.conf')
     ignore_venv = True
 
-    log.debug(f"'{app_conf_filepath}' found. Loading config.")
-    app_conf = app_conf_params(app_conf_filepath)
-    if app_conf:
-        log.info("========== deploy.conf parameters ==========")
-        log.info(f"  Program framework:      {app_conf.framework}")
-        log.info(f"  Make these as links:    {app_conf.links}")
-        log.info(f"  Make these executable:  {app_conf.executables}")
+    if app_conf_filepath.exists():
+        log.debug(f"'{app_conf_filepath}' found. Loading config.")
 
-        log.info(f"  Create venv:            {app_conf.create_venv}")
-        log.info(f"  Venv folder name:       {app_conf.venv_name}")
-        log.info(f"  Main script file:       {app_conf.main_file}")
-        log.info(f"  LD_LIBRARY path:        {app_conf.ld_lib}")
-        log.info("========== deploy.conf parameters ==========")
+        app_conf = utils.deploy_conf_params(app_conf_filepath)
+        if app_conf:
+            log.info("========== deploy.conf parameters ==========")
+            log.info("")
+            log.info(f"  Program framework:   {app_conf.framework}")
+            log.info(f"  Executables:         {app_conf.executables}")
+            log.info(f"  Links:               {app_conf.links}")
+            # log.info("")
+            # log.info(f"  --------- Virtual Environment ----------- ")
+            log.info(f"  Create venv:         {app_conf.create_venv}")
+            if app_conf.create_venv is not False:
+                log.info(f"  -- Folder name:      {app_conf.venv_name}")
+                log.info(f"  -- Main script file: {app_conf.main_file}")
+                log.info(f"  -- LD_LIBRARY path:  {app_conf.ld_lib}")
+            log.info("")
+            log.info("========== deploy.conf parameters ==========")
 
     # Ask user if he's certain to deploy
     log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
@@ -405,7 +411,7 @@ def deploy(args):
         log.debug(f"Making '{exe_file}' executable... Permissions: 774")
         os.chmod(exe_file, 0o774)
 
-    raise SystemExit
+    raise SystemExit()
 
     if app_conf_filepath.exists():
         # log.debug(f"'{app_conf_filepath}' found. Loading config.")
@@ -1089,7 +1095,7 @@ def templates(args):
         if not answer:
             log.info(f"File {target_filepath.name} was NOT copied.")
             return
-    # shutil.copy(selected.filepath, CURDIR)
+    shutil.copy(selected.filepath, CURDIR)
     log.info(f"File {selected.filename} copied into current directory.")
     return
 
