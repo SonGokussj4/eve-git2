@@ -29,8 +29,8 @@ Red, BRed = Fore.RED, f'{Fore.RED}{Style.BRIGHT}'
 class MyParser(argparse.ArgumentParser):
     def error(self, message):
         self.print_help()
-        print(f"\n[ {BRed}ERROR{RCol} ] Err message bellow. Please read usage above.")
-        raise SystemExit(f"[ {BRed}ERROR{RCol} ] {message}")
+        print(f"\n[ {BRed}ERROR{RCol} ] Please read usage above.")
+        raise SystemExit(f"[ {BRed}ERROR{RCol} ] '{message}'")
 
 
 class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter):
@@ -43,11 +43,11 @@ class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTe
     # Remove unnecessary '<Commands>' line in '-h'
     # Source: https://stackoverflow.com/a/48051233/4574809
     def _format_action(self, action):
-            result = super()._format_action(action)
-            if isinstance(action, argparse._SubParsersAction):
-                # fix indentation on first line
-                return f"{self._current_indent * ' '}{result.lstrip()}"
-            return result
+        result = super()._format_action(action)
+        if isinstance(action, argparse._SubParsersAction):
+            # fix indentation on first line
+            return f"{self._current_indent * ' '}{result.lstrip()}"
+        return result
 
     def _format_action_invocation(self, action):
         if isinstance(action, argparse._SubParsersAction):

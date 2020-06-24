@@ -275,16 +275,36 @@ def check_user_repo_exist(server: str, repository: str, username: str, session) 
     if res.status_code != 200:
         msg = f"User '{username}' doesn't exist!"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     # Does the <repository> of <user> exist?
     res = session.get(f"{server}/api/v1/repos/{username}/{repository}")
     if res.status_code != 200:
         msg = f"Repository '{server}/{username}/{repository}' does not exist."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     return True
+
+
+def check_owner_exist(server: str, owner: str, session) -> bool:
+    """Return True if Organization/User exists."""
+    url = f"{server}/api/v1/orgs/{owner}"
+    log.debug(f"url: {url}")
+    res = session.get(url)
+    log.debug(f"res.status_code: {res.status_code} (checking owner - Organization)")
+    if res.status_code == 200:
+        return True
+
+    url = f"{server}/api/v1/users/{owner}"
+    log.debug(f"url: {url}")
+    res = session.get(url)
+    log.debug(f"res.status_code: {res.status_code} (checking owner - Username)")
+    if res.status_code == 200:
+        return True
+
+    log.critical(f"Owner '{owner}' was not found either in Organizations or Users")
+    raise SystemExit()
 
 
 def check_org_exist(server: str, organization: str, session) -> bool:
@@ -472,7 +492,7 @@ def get_repo_list_as_table(session: requests.Session(), server: str,
 
 
 def select_owner_from_list(session: str, server: str, owner: str = '', question: str = '') -> Selected:
-    """Docstring."""
+    """Make columnar() table selectable, return Selected()."""
     tbl = get_owner_list_as_table(session, server)
 
     tbl_as_string = tbl.split('\n')
@@ -596,6 +616,7 @@ def get_owner_list_as_table(session, server):
             ''
         ]
         for item in data_users
+        if item['username'] != 'root'
     ]
 
     results = []

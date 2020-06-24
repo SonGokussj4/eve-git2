@@ -38,7 +38,7 @@ from git import Repo, exc  # https://gitpython.readthedocs.io/en/stable/tutorial
 from colorama import init, Fore, Back, Style
 from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # https://pypi.org/project/PyInquirer/
 # from PyInquirer import Validator, ValidationError
-# from autologging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
+# from autolo`gging import logged, TRACE, traced  # https://pypi.org/project/Autologging/
 # from configobj import ConfigObj  # http://www.voidspace.org.uk/python/articles/configobj.shtml
 
 
@@ -310,7 +310,7 @@ def deploy(args):
     if args.branch not in remote_branches:
         msg = f"Remote branch [{BRed}{args.branch}{RCol}] does not exist.'"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     questions = [
         {
@@ -341,7 +341,7 @@ def deploy(args):
 
     answers = prompt(questions, style=QSTYLE)
     if not answers:
-        raise SystemExit
+        raise SystemExit()
 
     args.branch = answers.get('branch')
 
@@ -533,7 +533,7 @@ def connect_here(args):
         ]
         answers = prompt(questions, style=QSTYLE)
         if not answers:
-            raise SystemExit
+            raise SystemExit()
         log.debug(f"answers: {answers}")
 
         if answers.get('continue'):
@@ -542,7 +542,7 @@ def connect_here(args):
             return
         else:
             log.info("Modifying url canceled.")
-            raise SystemExit
+            raise SystemExit()
 
     log.debug(f"Neither of the repositories was named 'gitea', adding a new one.")
     repo.create_remote('gitea', new_url)
@@ -587,7 +587,7 @@ def create_org(args):
 
     answers = prompt(questions, style=QSTYLE)
     if not answers:
-        raise SystemExit
+        raise SystemExit()
 
     log.debug(f"answers: {answers}")
 
@@ -618,23 +618,23 @@ def create_org(args):
     if res.status_code == 401:
         msg = f"Something went wrong. Check your GITEA_TOKEN or internet connection."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 422:
         msg = f"Repository '{args.organization}' with the same name already exists."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 422:
         msg = f"Validation Error... Can't create repository with this name. Details bellow."
         log.critical(msg)
         msg += f"\n{json.loads(res.content)}"
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code != 201:
         msg = f"Unknown error when trying to create new organization. Status_code: {res.status_code}"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     log.info(f"Done. Organization created.")
 
@@ -714,29 +714,29 @@ def create_repo(args):
     if res.status_code == 401:
         msg = f"Unauthorized... Missing, wrong or weak (non-admin) GITEA_TOKEN..."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 403:
         msg = (f"Status code: {res.status_code}. Something wrong with GITEA_TOKEN. "
                "Using admin-command with non-admin token?")
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 409:
         msg = f"Repository '{args.reponame}' under '{args.username}' already exists."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 422:
         msg = f"Validation Error... Can't create repository with this name. Details bellow."
         log.critical(msg)
         msg += f"\n{res.json()}"
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code != 201:
         msg = f"Something went wrong. Don't know what. Status_code: {res.status_code}"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     url = f"{SERVER}/{args.username}/{args.reponame}"
     log.info(f"Remote Repository created in '{url}'")
@@ -773,6 +773,9 @@ def transfer_repo(args):
 
         args.username = selected.username
 
+    # Check if combination user/repo exists, if not, show error and exit app
+    check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+
     if not args.new_owner:
         log.debug(f"User didn't specify <new_owner>")
 
@@ -781,27 +784,24 @@ def transfer_repo(args):
 
         args.new_owner = selected.owner
 
-    # else:
-    #     if not check_org_exist(SERVER, args.target, args.session):
-    #         log.critical("Entered org/user not found. Exitting app")
-    #         raise SystemExit()
-
-    # # Check if 'user' and combination of 'user/repo' exist
-    # check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+    # Check if owner (Organization/User) exists, if not, show error and exit app
+    utils.check_owner_exist(SERVER, args.new_owner, args.session)
 
     # Everything OK, transfer the repository
     log.info(f"Transfering '{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer'")
     url = f"{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer"
     repo_data = {
         "new_owner": args.new_owner,
-        # "team_ids": [
-        #     0
-        # ]
+        # "team_ids": [0]
     }
-
     log.debug(f"url: '{url}'")
     log.debug(f"repo_data: '{repo_data}'")
-    # raise SystemExit("User exit")
+
+    # Confirmation
+    utils.ask_confirm("Are you sure you want to transfer "
+                      f"'{args.username}/{args.repository}' --> '{args.new_owner}/{args.repository}'?")
+
+    # Do the transfer
     res = args.session.post(url=url, json=repo_data)
     log.debug(f"res: {res}")
 
@@ -818,7 +818,7 @@ def transfer_repo(args):
         raise SystemExit()
 
     elif res.status_code == 404:
-        msg = f"Not Found - empty response"
+        msg = f"Not Found - empty response - possible that the repository (owner) is organization but username was entered."
         log.critical(msg)
         raise SystemExit()
 
@@ -938,9 +938,9 @@ def remove_org(args):
     # Everything OK, delete the organization
     log.info(f"You are about to REMOVE organization: '{SERVER}/{args.organization}'")
 
-    ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
-    ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
-                     comp_str=args.organization)
+    utils.ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
+    utils.ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
+                           comp_str=args.organization)
 
     log.info(f"Deleting organization '{args.organization}'")
 
