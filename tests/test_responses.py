@@ -1,5 +1,5 @@
 # import os
-import utils
+import utls
 import requests
 import configparser
 from pathlib import Path
@@ -20,7 +20,7 @@ def test_url_false():
 
 def test_download_filepath_as_dir():
     url = f"{cfg['server']['url']}/C2/ansarun/raw/branch/master/ansarun.sh"
-    filename: Path = utils.download(url, Path('/tmp'))
+    filename: Path = utls.download(url, Path('/tmp'))
     print(f">>> filename: {filename}")
     filename.unlink()
     assert filename == Path('/tmp/ansarun.sh')
@@ -28,6 +28,6 @@ def test_download_filepath_as_dir():
 
 def test_download_filepath_as_filename():
     url = f"{cfg['server']['url']}/C2/ansarun/raw/branch/master/ansarun.sh"
-    filename: Path = utils.download(url, Path('/tmp/result.py'))
+    filename: Path = utls.download(url, Path('/tmp/result.py'))
     filename.unlink()
     assert filename == Path('/tmp/result.py')

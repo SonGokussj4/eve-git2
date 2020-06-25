@@ -45,10 +45,9 @@ from PyInquirer import style_from_dict, Token, prompt, Separator, print_json  # 
 # User Libs
 #===========
 import cli
-import utils
+import utls
 
-import utils as utl
-from utils import *  # FIXME Predelat na import utils jen
+from utls import *  # FIXME Predelat na import utils jen
 
 
 # ==============================
@@ -292,7 +291,7 @@ def init_session(args):
 
 def deploy(args):
     log.info(f"Deploying...")
-    selected = utl.select_repo_from_list(
+    selected = utls.select_repo_from_list(
         args.session, SERVER, args.repository, args.username, 'Select repository to deploy')
 
     args.repository = selected.repository
@@ -372,7 +371,7 @@ def deploy(args):
     if app_conf_filepath.exists():
         log.debug(f"'{app_conf_filepath}' found. Loading config.")
 
-        app_conf = utils.deploy_conf_params(app_conf_filepath)
+        app_conf = utls.deploy_conf_params(app_conf_filepath)
         if app_conf:
             log.info("========== deploy.conf parameters ==========")
             log.info("")
@@ -411,14 +410,10 @@ def deploy(args):
         log.debug(f"Making '{exe_file}' executable... Permissions: 774")
         os.chmod(exe_file, 0o774)
 
-    raise SystemExit()
-
+    # FIXME Kdyz budu mit Create venv: True (deploy.config) ale nebude 'requirements.txt', tak to nevytvori
     if app_conf_filepath.exists():
-        # log.debug(f"'{app_conf_filepath}' found. Loading config.")
-        # app_conf = configparser.ConfigParser(allow_no_value=True)
-        # app_conf.read(app_conf_filepath)
-
         src_requirements = tmp_dir / 'requirements.txt'
+
         if src_requirements.exists():
             dst_requirements = target_dir / 'requirements.txt'
             # Check if requirements.txt / deploy.conf are different
@@ -427,9 +422,8 @@ def deploy(args):
 
         # Requirements.txt files are different. Create virtual environment
         if not ignore_venv:
-            framework = app_conf['Repo']['Framework']
             log.info(f"Making virtual environment...")
-            cmd = f'{framework} -m venv {tmp_dir}/.env'
+            cmd = f'{app_conf.framework} -m venv {tmp_dir}/.env'
             log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
 
@@ -458,7 +452,7 @@ def deploy(args):
             log.debug(f"{target_dir} created.")
 
         # Make symbolic link(s)
-        for key, val in app_conf.items('Link'):
+        for key, val in app_conf.links.items():
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
             log.info(f"Linking '{src_filepath}' --> '{dst_filepath}'")
@@ -785,13 +779,13 @@ def transfer_repo(args):
     if not args.new_owner:
         log.debug(f"User didn't specify <new_owner>")
 
-        selected = utils.select_owner_from_list(args.session, SERVER, args.new_owner, "Select New Owner: ")
+        selected = utls.select_owner_from_list(args.session, SERVER, args.new_owner, "Select New Owner: ")
         log.debug(f"selected.repository: {selected.repository}")
 
         args.new_owner = selected.owner
 
     # Check if owner (Organization/User) exists, if not, show error and exit app
-    utils.check_owner_exist(SERVER, args.new_owner, args.session)
+    utls.check_owner_exist(SERVER, args.new_owner, args.session)
 
     # Everything OK, transfer the repository
     log.info(f"Transfering '{SERVER}/api/v1/repos/{args.username}/{args.repository}/transfer'")
@@ -804,8 +798,8 @@ def transfer_repo(args):
     log.debug(f"repo_data: '{repo_data}'")
 
     # Confirmation
-    utils.ask_confirm("Are you sure you want to transfer "
-                      f"'{args.username}/{args.repository}' --> '{args.new_owner}/{args.repository}'?")
+    utls.ask_confirm("Are you sure you want to transfer "
+                     f"'{args.username}/{args.repository}' --> '{args.new_owner}/{args.repository}'?")
 
     # Do the transfer
     res = args.session.post(url=url, json=repo_data)
@@ -944,9 +938,9 @@ def remove_org(args):
     # Everything OK, delete the organization
     log.info(f"You are about to REMOVE organization: '{SERVER}/{args.organization}'")
 
-    utils.ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
-    utils.ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
-                           comp_str=args.organization)
+    utls.ask_confirm('Are you SURE you want to do this??? This operation CANNOT be undone.')
+    utls.ask_confirm_data(f'Enter the organization NAME as confirmation [{args.organization}]',
+                          comp_str=args.organization)
 
     log.info(f"Deleting organization '{args.organization}'")
 

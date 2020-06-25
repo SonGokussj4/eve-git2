@@ -3,7 +3,7 @@ import pytest
 from io import StringIO
 from pathlib import Path
 
-import utils
+import utls
 from tests import SCRIPTDIR, TEST_FILES
 
 # def test_ask_with_defaults_true(monkeypatch):
@@ -40,40 +40,40 @@ from tests import SCRIPTDIR, TEST_FILES
 def test_remove_dir_tree():
     path = '/tmp/test_removedir'
     os.system(f'mkdir {path}')
-    res = utils.remove_dir_tree(path)
+    res = utls.remove_dir_tree(path)
     assert res is True
 
 
 def test_requirements_similar_same():
-    assert True is utils.requirements_similar(
+    assert True is utls.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_SRC.txt')
 
 
 def test_requirements_similar__same_req_as_string():
-    assert True is utils.requirements_similar(
+    assert True is utls.requirements_similar(
         str(TEST_FILES / 'requirements_SRC.txt'), str(TEST_FILES / 'requirements_SRC.txt'))
 
 
 def test_requirements_similar_not_same():
-    assert False is utils.requirements_similar(
+    assert False is utls.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'requirements_DST.txt')
 
 
 def test_requirements_similar_src_missing():
-    assert False is utils.requirements_similar(
+    assert False is utls.requirements_similar(
         TEST_FILES / 'not_a_file', TEST_FILES / 'requirements_DST.txt')
 
 
 # @pytest.mark.custom
 def test_requirements_similar_dst_missing():
-    assert False is utils.requirements_similar(
+    assert False is utls.requirements_similar(
         TEST_FILES / 'requirements_SRC.txt', TEST_FILES / 'not_a_file')
 
 
 @pytest.mark.custom
 def test_app_conf_params__python__simple_params():
     conf_file = TEST_FILES / 'python_app.conf'
-    config = utils.app_conf_params(conf_file)
+    config = utls.deploy_conf_params(conf_file)
     assert config.framework == 'python3.7eve'
     assert config.ld_lib == '/path/to/LD_LIBRARIES'
 
@@ -81,13 +81,13 @@ def test_app_conf_params__python__simple_params():
 @pytest.mark.custom
 def test_app_conf_params__python__bool():
     conf_file = TEST_FILES / 'python_app.conf'
-    config = utils.app_conf_params(conf_file)
+    config = utls.deploy_conf_params(conf_file)
     assert config.create_venv is True
 
 
 @pytest.mark.custom
 def test_app_conf_params__python__list():
     conf_file = TEST_FILES / 'python_app.conf'
-    config = utils.app_conf_params(conf_file)
+    config = utls.deploy_conf_params(conf_file)
     ls = [item for item in config.executables]
     assert ls == ['run.sh', 'hmm.lol']
