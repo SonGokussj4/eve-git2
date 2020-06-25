@@ -630,6 +630,7 @@ def get_org_list_as_table(session, server):
     """Return columnar() table object with list of organizations using gitea api.
 
     Admin GITEA_TOKEN needed!!!
+    2020-06-25 NOT FOR NOWWWWW
 
     Sorted by 'name' ascending.
 
@@ -645,8 +646,10 @@ def get_org_list_as_table(session, server):
         C2            4
         P135          4
     """
-    url = f"{server}/api/v1/admin/orgs"
+    # url = f"{server}/api/v1/admin/orgs"
+    url = f"{server}/api/v1/orgs"
     log.debug(f"url: '{url}'")
+    # TODO Co kdyz zkusim napred admin, kdyz to nevyjde, user. Zobrazi se vic organizaci?
 
     res = session.get(url)
     if res.status_code == 403:
@@ -780,7 +783,7 @@ def ask_confirm_data(msg, comp_str):
 
     answer = answers.get('result')
     if not answer == comp_str:
-        msg = f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting..."
+        msg = f"Entered '{answer}' is not the same as '{comp_str}'. Aborting..."
         log.critical(msg)
         raise SystemExit()
 
@@ -808,7 +811,7 @@ def ask_confirm_from_list(msg, comp_str):
 
     answer = answers.get('result')
     if not answer == comp_str:
-        msg = f"Entered orgname '{answer}' is not the same as '{comp_str}'. Aborting..."
+        msg = f"Entered '{answer}' is not the same as '{comp_str}'. Aborting..."
         log.critical(msg)
         raise Exception(msg)
 

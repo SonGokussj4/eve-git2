@@ -102,62 +102,87 @@ Description:
     # https://pymotw.com/2/argparse/#nesting-parsers
     subparsers = parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
-    # CLONE
+    # -----------  CLONE  -----------
     parser_clone = subparsers.add_parser('clone', parents=[common], help='Clone selected repo into current folder')
     parser_clone.add_argument('repository', help='Repository name')
     parser_clone.add_argument('username', nargs='?', help='Specify User/Org')
     parser_clone.formatter_class = CustomHelpFormatter
     parser_clone.set_defaults(func=eve_git.clone_repo)
 
-    # LIST
-    parser_list = subparsers.add_parser('list', help='List remote Repositories. Max 50 items displayed.', parents=[common])
-    parser_list.add_argument('repository', nargs='?', default='', help='Help for <repository>')
-    parser_list.add_argument('username', nargs='?', default='', help='Specify User/Org')
-    parser_list.formatter_class = CustomHelpFormatter
-    parser_list.set_defaults(func=eve_git.list_repo)
+    # -----------  LIST  -----------
+    list_parser = subparsers.add_parser('list', help='List {repo/org}. Max 50 items displayed.', parents=[common])
+    list_parser.formatter_class = CustomHelpFormatter
+    list_parser.set_defaults(func=eve_git.list_arg)
 
-    # LIST_ORG
-    parser_list_org = subparsers.add_parser('list_org', help='List remote Oranizations. (Admin only)', parents=[common])
-    parser_list_org.set_defaults(func=eve_git.list_org)
+    # {repo, org}
+    list_subparsers = list_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
-    # CREATE
-    parser_create = subparsers.add_parser('create', help='Create remote Repository (and clone it to current dir)', parents=[common])
-    parser_create.add_argument('reponame', nargs='?', default='', help='Repository name')
-    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write project description>', help='New repo description')
-    parser_create.add_argument('username', nargs='?', default=getpass.getuser(), help='Specify User/Org under which will it be created')
-    parser_create.formatter_class = CustomHelpFormatter
-    parser_create.set_defaults(func=eve_git.create_repo)
+    # list --> repo
+    list_repo_parser = list_subparsers.add_parser('repo', help='List remote Repositories. Max 50 items displayed.', parents=[common])
+    list_repo_parser.formatter_class = CustomHelpFormatter
+    list_repo_parser.set_defaults(func=eve_git.list_repo_arg)
+    list_repo_parser.add_argument('repository', nargs='?', default='', help='Help for <repository>')
+    list_repo_parser.add_argument('username', nargs='?', default='', help='Specify User/Org')
 
-    # CREATE_ORG
-    parser_create = subparsers.add_parser('create_org', help='Create remote Organization', parents=[common])
-    parser_create.add_argument('organization', nargs='?', default='', help='Specify Organization')
-    parser_create.add_argument('description', nargs='?', default=f'TODO: <Write organization description>', help='Help for <description>')
-    parser_create.add_argument('fullname', nargs='?', default='', help='Help for <fullname>')
-    parser_create.add_argument('visibility', nargs='?', default='public', help='Help for <visibility>')
-    parser_create.formatter_class = CustomHelpFormatter
-    parser_create.set_defaults(func=eve_git.create_org)
+    # list --> org
+    list_org_parser = list_subparsers.add_parser('org', help='List remote Organizations. (Admin only)', parents=[common])
+    list_org_parser.formatter_class = CustomHelpFormatter
+    list_org_parser.set_defaults(func=eve_git.list_org_arg)
 
-    # REMOVE
-    parser_remove = subparsers.add_parser('remove', help='Remove remote Repository', parents=[common])
-    parser_remove.add_argument('repository', help='Help for <repository>')
-    parser_remove.add_argument('username', nargs='?', help='Specify User/Org')
-    parser_remove.formatter_class = CustomHelpFormatter
-    parser_remove.set_defaults(func=eve_git.remove_repo)
+    # -----------  CREATE  -----------
+    create_parser = subparsers.add_parser('create', help='Create {repo/org}', parents=[common])
+    create_parser.formatter_class = CustomHelpFormatter
+    create_parser.set_defaults(func=eve_git.create_arg)
 
-    # REMOVE_ORG
-    parser_remove_org = subparsers.add_parser('remove_org', help='Remove remote Organization. Has to be empty.', parents=[common])
-    parser_remove_org.add_argument('organization', nargs='?', help='Specify Organization')
-    parser_remove_org.formatter_class = CustomHelpFormatter
-    parser_remove_org.set_defaults(func=eve_git.remove_org)
+    # {repo, org}
+    create_subparsers = create_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
-    # EDIT
+    # create --> repo
+    create_repo_parser = create_subparsers.add_parser('repo', help='Create Repository (and clone it to current dir)', parents=[common])
+    create_repo_parser.add_argument('reponame', nargs='?', default='', help='Repository name')
+    create_repo_parser.add_argument('description', nargs='?', default=f'TODO: <Write project description>', help='New repo description')
+    create_repo_parser.add_argument('username', nargs='?', default=getpass.getuser(), help='Specify User/Org under which will it be created')
+    create_repo_parser.formatter_class = CustomHelpFormatter
+    create_repo_parser.set_defaults(func=eve_git.create_repo_arg)
+
+    # create --> org
+    create_org_parser = create_subparsers.add_parser('org', help='Create Organization', parents=[common])
+    create_org_parser.add_argument('organization', nargs='?', default='', help='Specify Organization')
+    create_org_parser.add_argument('description', nargs='?', default=f'TODO: <Write organization description>', help='Help for <description>')
+    create_org_parser.add_argument('fullname', nargs='?', default='', help='Help for <fullname>')
+    create_org_parser.add_argument('visibility', nargs='?', default='public', help='Help for <visibility>')
+    create_org_parser.formatter_class = CustomHelpFormatter
+    create_org_parser.set_defaults(func=eve_git.create_org_arg)
+
+    # -----------  REMOVE  -----------
+    remove_parser = subparsers.add_parser('remove', help='Remove {repo/org}', parents=[common])
+    remove_parser.formatter_class = CustomHelpFormatter
+    remove_parser.set_defaults(func=eve_git.remove_arg)
+
+    # {repo, org}
+    remove_subparsers = remove_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
+
+    # remove --> repo
+    remove_repo_parser = remove_subparsers.add_parser('repo', help='Remove Repository', parents=[common])
+    remove_repo_parser.add_argument('repository', nargs='?', help='Help for <repository>')
+    remove_repo_parser.add_argument('username', nargs='?', help='Specify User/Org')
+    remove_repo_parser.formatter_class = CustomHelpFormatter
+    remove_repo_parser.set_defaults(func=eve_git.remove_repo_arg)
+
+    # remove --> org
+    remove_org_parser = remove_subparsers.add_parser('org', help='Remove Organization. Has to be empty.', parents=[common])
+    remove_org_parser.add_argument('organization', nargs='?', help='Specify Organization')
+    remove_org_parser.formatter_class = CustomHelpFormatter
+    remove_org_parser.set_defaults(func=eve_git.remove_org_arg)
+
+    # -----------  EDIT  -----------
     parser_edit = subparsers.add_parser('edit', help='Edit remote repo Description', parents=[common])
-    parser_edit.add_argument('repository', help='Help for <repository>')
+    parser_edit.add_argument('repository', nargs='?', help='Help for <repository>')
     parser_edit.add_argument('username', nargs='?', help='Specify User/Org')
     parser_edit.formatter_class = CustomHelpFormatter
     parser_edit.set_defaults(func=eve_git.edit_desc)
 
-    # TRANSFER
+    # -----------  TRANSFER  -----------
     parser_transfer = subparsers.add_parser('transfer', help='Transfer repository to different User/Group', parents=[common])
     parser_transfer.add_argument('repository', nargs='?', default='', help='Specify Repository for transfer')
     parser_transfer.add_argument('username', nargs='?', default='', help='Specify User/Org')
@@ -165,14 +190,14 @@ Description:
     parser_transfer.formatter_class = CustomHelpFormatter
     parser_transfer.set_defaults(func=eve_git.transfer_repo)
 
-    # CONNECT
+    # -----------  CONNECT  -----------
     parser_connect = subparsers.add_parser('connect', help='Connect current repository to remote one', parents=[common])
     parser_connect.add_argument('repository', nargs='?', default='', help='Specify Repository to connect to')
     parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='git remote add <remote_name>')
     parser_connect.formatter_class = CustomHelpFormatter
     parser_connect.set_defaults(func=eve_git.connect_here)
 
-    # DEPLOY
+    # -----------  DEPLOY  -----------
     parser_deploy = subparsers.add_parser('deploy', help='Deploy selected repository to production', parents=[common])
     parser_deploy.add_argument('repository', help='Repository name')
     parser_deploy.add_argument('username', nargs='?', help='Specify User/Org')
@@ -180,7 +205,7 @@ Description:
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
-    # TEMPLATE
+    # -----------  TEMPLATE  -----------
     parser_template = subparsers.add_parser('template', help='Choose one of the templates and copy here.', parents=[common])
     # parser_template.add_argument('repository', help='Help for <repository>')
     # parser_template.add_argument('username', nargs='?', help='Specify User/Org')
@@ -188,45 +213,33 @@ Description:
     parser_template.formatter_class = CustomHelpFormatter
     parser_template.set_defaults(func=eve_git.templates)
 
-    # # SUB-TEMPLATE?
-    # sub_template = parser_template.add_subparsers(title='commands', dest='command', metavar="<command>")
-    # sub_template_dev = sub_template.add_parser('dev', parents=[common], help='Clone selected repo into current folder')
-    # sub_template_dev.add_argument('file', nargs='?', const='templates-eve-git.settings', help='Get eve-git.settings')
-
-    # PYTHON
-    python_parser = subparsers.add_parser('python', help='Python stuff.', parents=[common])
+    # -----------  PYTHON  -----------
+    python_parser = subparsers.add_parser('python', help='Python {teplate/venv}', parents=[common])
     python_parser.formatter_class = CustomHelpFormatter
     # parser_python.set_defaults(func=eve_git.python)
+
+    # {template, venv}
     python_subparsers = python_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
-    # PYTHON --> VENV
+    # python --> template
+    python_template_parser = python_subparsers.add_parser('template', help='Managing templates', parents=[common])
+    python_template_parser.formatter_class = CustomHelpFormatter
+    python_template_parser.set_defaults(func=eve_git.templates)
+    # python_template_parser.add_argument('list', action="store_true", help='List possible python templates to download')
+
+    # python --> venv
     python_venv_parser = python_subparsers.add_parser('venv', help='Manipulating with environments', parents=[common])
     python_venv_parser.formatter_class = CustomHelpFormatter
+    # python_venv_parser.set_defaults(func=eve_git.python_venv)
     # python_venv_parser.add_argument('new', nargs='?', default='', help='Create new Virtual Environment')
     # python_venv_parser.add_argument('change', nargs='?', default='', help='Modify Virtual Environment')
     python_venv_subparsers = python_venv_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
 
+    # python --> venv --> new
     python_venv_new_parser = python_venv_subparsers.add_parser('new', help='Create new Venv', parents=[common])
     python_venv_new_parser.formatter_class = CustomHelpFormatter
-    python_venv_new_parser.add_argument('foldername', default='.env', nargs='?', help='Specify folder name')
     python_venv_new_parser.set_defaults(func=eve_git.python_venv)
-
-    # PYTHON --> TEMPLATE
-    python_template_parser = python_subparsers.add_parser('template', help='Managing templates', parents=[common])
-    python_template_parser.formatter_class = CustomHelpFormatter
-    python_template_parser.add_argument('list', help='List possible python templates to download')
-    python_template_parser.set_defaults(func=eve_git.templates)
-
-    # # PYTHON >>> VENV
-    # sub_python_venv = python_parser.add_subparsers(title='venv', dest='command', metavar="<command>")
-    # parser_python_venv = sub_python_venv.add_parser('new', parents=[common], help='Create new venv')
-    # parser_python_venv.add_argument('name', nargs='?', help='Venv name')
-    # # parser_python_venv.add_argument('pythonversion', nargs='?', help='Python to use (fullpath)')
-
-    # # PYTHON >>> TEMPLATE
-    # sub_python_template = python_parser.add_subparsers(title='template', dest='command', metavar="<command>")
-    # parser_python_template = sub_python_template.add_parser('get', parents=[common], help='Get ma template')
-    # parser_python_template.add_argument('fromlist', nargs='?', help='Select template from list')
+    python_venv_new_parser.add_argument('foldername', default='.env', nargs='?', help='Specify folder name')
 
     # group = parser.add_mutually_exclusive_group()
 

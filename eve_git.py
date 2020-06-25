@@ -127,28 +127,6 @@ if not DEBUG:
 # ===============================
 from progress import Progress
 
-
-# def addLogLevel(levelName, level):
-#     """
-#     Add a new log level.
-
-#     :param levelName: name for the new level
-#     :param level:     integer defining the level
-#     """
-#     n, N = levelName, levelName.upper()
-#     setattr(logging, N, level)
-#     # setattr(logging, N + "_COLOR", color)
-#     logging.addLevelName(level, N)
-#     def display(self, message, *args, **kwargs):
-#         if self.isEnabledFor(level):
-#             self._log(level, message, args, **kwargs)
-#     display.__name__ = n
-#     setattr(logging.Logger, n, display)
-#     logging._levelToName[level] = N
-#     logging._nameToLevel[N] = level
-#     logging.addLogLevel = addLogLevel
-
-
 addLogLevel('trace', 1)
 
 LOG_COLORS = {
@@ -550,98 +528,12 @@ def connect_here(args):
     return
 
 
-def create_org(args):
-    """Function Description."""
-    questions = [
-        {
-            'message': f"Organization name:",
-            'default': args.organization,
-            'name': 'organization',
-            'type': 'input',
-            'validate': lambda answer: "Cannot be empty."
-            if not answer else True
-        },
-        {
-            'message': "Description:",
-            'default': args.description,
-            'name': 'description',
-            'type': 'input',
-            'validate': lambda answer: "Cannot be empty."
-            if not answer else True
-        },
-        {
-            'message': "Full Name:",
-            'default': args.fullname,
-            'name': 'fullname',
-            'type': 'input',
-        },
-        {
-            'message': "Visibility (public|private):",
-            'default': args.visibility,
-            'name': 'visibility',
-            'type': 'input',
-            'validate': lambda answer: "Wrong choice. Choose from 'public' or 'private'."
-            if answer not in ['public', 'private'] else True
-        },
-    ]
-
-    answers = prompt(questions, style=QSTYLE)
-    if not answers:
-        raise SystemExit()
-
-    log.debug(f"answers: {answers}")
-
-    args.organization = answers.get('organization')
-    args.description = answers.get('description')
-    args.fullname = answers.get('fullname')
-    args.visibility = answers.get('visibility')
-
-    log.debug(f"args.reponame: {args.organization}")
-    log.debug(f"args.description: {args.description}")
-    log.debug(f"args.fullname: {args.fullname}")
-    log.debug(f"args.visibility: {args.visibility}")
-
-    repo_data = {
-        "description": args.description,
-        "full_name": args.fullname,
-        "repo_admin_change_team_access": True,
-        "username": args.organization,  # THIS is Organization name
-        "visibility": args.visibility,
-    }
-    log.debug(f"repo_data: {repo_data}")
-
-    # Create organization
-    res = args.session.post(url=f"{SERVER}/api/v1/orgs", json=repo_data)
-    log.debug(f"res: {res}")
-
-    # Viable responses
-    if res.status_code == 401:
-        msg = f"Something went wrong. Check your GITEA_TOKEN or internet connection."
-        log.critical(msg)
-        raise SystemExit()
-
-    elif res.status_code == 422:
-        msg = f"Repository '{args.organization}' with the same name already exists."
-        log.critical(msg)
-        raise SystemExit()
-
-    elif res.status_code == 422:
-        msg = f"Validation Error... Can't create repository with this name. Details bellow."
-        log.critical(msg)
-        msg += f"\n{json.loads(res.content)}"
-        raise SystemExit()
-
-    elif res.status_code != 201:
-        msg = f"Unknown error when trying to create new organization. Status_code: {res.status_code}"
-        log.critical(msg)
-        raise SystemExit()
-
-    log.info(f"Done. Organization created.")
-
-    return 0
+def create_arg(args):
+    """When empty, show help for eve-git create -h."""
+    args.parser.parse_args(['create', '-h'])
 
 
-def create_repo(args):
+def create_repo_arg(args):
     questions = [
         {
             'message': "Repository name:",
@@ -752,6 +644,97 @@ def create_repo(args):
     return 0
 
 
+def create_org_arg(args):
+    """Function Description."""
+    questions = [
+        {
+            'message': f"Organization name:",
+            'default': args.organization,
+            'name': 'organization',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Description:",
+            'default': args.description,
+            'name': 'description',
+            'type': 'input',
+            'validate': lambda answer: "Cannot be empty."
+            if not answer else True
+        },
+        {
+            'message': "Full Name:",
+            'default': args.fullname,
+            'name': 'fullname',
+            'type': 'input',
+        },
+        {
+            'message': "Visibility (public|private):",
+            'default': args.visibility,
+            'name': 'visibility',
+            'type': 'input',
+            'validate': lambda answer: "Wrong choice. Choose from 'public' or 'private'."
+            if answer not in ['public', 'private'] else True
+        },
+    ]
+
+    answers = prompt(questions, style=QSTYLE)
+    if not answers:
+        raise SystemExit()
+
+    log.debug(f"answers: {answers}")
+
+    args.organization = answers.get('organization')
+    args.description = answers.get('description')
+    args.fullname = answers.get('fullname')
+    args.visibility = answers.get('visibility')
+
+    log.debug(f"args.reponame: {args.organization}")
+    log.debug(f"args.description: {args.description}")
+    log.debug(f"args.fullname: {args.fullname}")
+    log.debug(f"args.visibility: {args.visibility}")
+
+    repo_data = {
+        "description": args.description,
+        "full_name": args.fullname,
+        "repo_admin_change_team_access": True,
+        "username": args.organization,  # THIS is Organization name
+        "visibility": args.visibility,
+    }
+    log.debug(f"repo_data: {repo_data}")
+
+    # Create organization
+    res = args.session.post(url=f"{SERVER}/api/v1/orgs", json=repo_data)
+    log.debug(f"res: {res}")
+
+    # Viable responses
+    if res.status_code == 401:
+        msg = f"Something went wrong. Check your GITEA_TOKEN or internet connection."
+        log.critical(msg)
+        raise SystemExit()
+
+    elif res.status_code == 422:
+        msg = f"Repository '{args.organization}' with the same name already exists."
+        log.critical(msg)
+        raise SystemExit()
+
+    elif res.status_code == 422:
+        msg = f"Validation Error... Can't create repository with this name. Details bellow."
+        log.critical(msg)
+        msg += f"\n{json.loads(res.content)}"
+        raise SystemExit()
+
+    elif res.status_code != 201:
+        msg = f"Unknown error when trying to create new organization. Status_code: {res.status_code}"
+        log.critical(msg)
+        raise SystemExit()
+
+    log.info(f"Done. Organization created.")
+
+    return 0
+
+
 def transfer_repo(args):
     """To transfer repo to different user/organization."""
     # TODO zkontrolovat user/reponame/targetname
@@ -828,22 +811,23 @@ def transfer_repo(args):
     return 0
 
 
-def list_org(args):
-    """Function for listing organizations."""
-    log.debug(f"Listing organizations")
-
-    tbl = get_org_list_as_table(args.session, SERVER)
-    print(tbl)
-
-    return
+def list_arg(args):
+    """When empty, show help for eve-git list -h."""
+    args.parser.parse_args(['list', '-h'])
 
 
-def list_repo(args):
-    """Function for listing directories."""
-    log.debug(f"Listing repository.")
+def list_repo_arg(args):
+    """Show repositories. list [repository] [owner]"""
+    log.debug(f"Listing repository. args.repository='{args.repository}', args.username='{args.username}'")
     tbl = utls.get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
     print(tbl)
-    return
+
+
+def list_org_arg(args):
+    """List organizations. list"""
+    log.debug(f"Listing organizations")
+    tbl = utls.get_org_list_as_table(args.session, SERVER)
+    print(tbl)
 
 
 def clone_repo(args):
@@ -854,14 +838,14 @@ def clone_repo(args):
         log.debug(f"User didn't specify <username>")
 
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to clone: ")
-        log.debug(f"selected.repository: {selected.repository}")
-        log.debug(f"selected.username: {selected.username}")
+        log.debug(f"selected.repository: '{selected.repository}'")
+        log.debug(f"selected.username: '{selected.username}'")
 
         args.repository = selected.repository
         args.username = selected.username
 
     # Check if 'user' and combination of 'user/repo' exist
-    check_user_repo_exist(SERVER, args.repository, args.username, args.session)
+    utls.check_user_repo_exist(SERVER, args.repository, args.username, args.session)
 
     # Everything OK, clone the repository
     log.info(f"Cloning '{SERVER}/{args.username}/{args.repository}'")
@@ -881,14 +865,24 @@ def clone_repo(args):
     log.info(f"DONE")
 
 
-def remove_repo(args):
-    """Remove repository from gitea"""
+def remove_arg(args):
+    """When empty, show help for eve-git remove -h."""
+    args.parser.parse_args(['remove', '-h'])
+
+
+def remove_repo_arg(args):
+    """Remove repository from server"""
     log.debug(f"Removing repo.")
+
+    if not args.repository:
+        log.debug(f"User didn't specify <repository>")
+        selected = select_repo_from_list(args.session, SERVER, '', "Select repo to remove: ")
+        args.repository = selected.repository
+        args.username = selected.username
 
     if not args.username:
         log.debug(f"User didn't specify <username>")
         selected = select_repo_from_list(args.session, SERVER, args.repository, "Select repo to remove: ")
-
         args.repository = selected.repository
         args.username = selected.username
 
@@ -907,20 +901,20 @@ def remove_repo(args):
     if res.status_code == 401:
         msg = f"Unauthorized... Something wrong with you GITEA_TOKEN..."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     # Case when normal user tries to remove repository of another user and doesn't have authorization for that
     elif res.status_code == 403:
         msg = f"Forbidden... You don't have enough permissinons to delete this repository..."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     log.info(f"DONE")
 
     return 0
 
 
-def remove_org(args):
+def remove_org_arg(args):
     """Remove organization from gitea"""
     log.debug(f"Removing oranization")
 
@@ -933,7 +927,7 @@ def remove_org(args):
         selected = select_org_from_list(session=args.session, server=SERVER, question="Select org to remove: ")
         log.debug(f"selected.organization: {selected.organization}")
 
-        args.organization = selected.ororganizationganization
+        args.organization = selected.organization
 
     # Everything OK, delete the organization
     log.info(f"You are about to REMOVE organization: '{SERVER}/{args.organization}'")
@@ -953,22 +947,22 @@ def remove_org(args):
     if res.status_code == 401:
         msg = f"Unauthorized. You don't have enough rights to delete this repository."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 403:
         msg = f"Status code: {res.status_code}. Can't remove organization that is not mine. Or other unknown problem."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     elif res.status_code == 500:
         msg = f"This organization still owns one or more repositories; delete or transfer them first."
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     if res.status_code != 204:
         msg = f"Unknown error for org: '{args.organization}'. Status code: {res.status_code}"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
     log.info(f"Done. Organization removed.")
     return 0
@@ -1095,7 +1089,10 @@ def templates(args):
 
 
 def python_venv(args):
-    print(f'args: {args}')
+    # print(f'args: {args}')
+    if not args.command:
+        args.parser.parse_args(["python", "venv", "-h"])
+
     if args.command == 'new':
         print("Creating new VENV")
         cmd = f'python3.7eve -m venv .env'
@@ -1132,11 +1129,11 @@ if __name__ == '__main__':
         log.error(f"No arguments... Showing help.")
         print()
         parser.print_help()
-        raise SystemExit
+        raise SystemExit()
 
     if args.token is not None:
         update_token(args)
-        raise SystemExit
+        raise SystemExit()
 
     # React on user inputted command/arguments
     try:
@@ -1147,4 +1144,5 @@ if __name__ == '__main__':
         scriptname = sys.argv[0]
         parser.error(f"Too few arguments. Try help: 'eve-git {' '.join(sys.argv[1:])} -h'")
 
+    args.parser = parser
     args.func(args)
