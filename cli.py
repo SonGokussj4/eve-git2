@@ -30,7 +30,7 @@ class MyParser(argparse.ArgumentParser):
     def error(self, message):
         self.print_help()
         print(f"\n[ {BRed}ERROR{RCol} ] Please read usage above.")
-        raise SystemExit(f"[ {BRed}ERROR{RCol} ] '{message}'")
+        raise SystemExit(f"[ {BRed}ERROR{RCol} ] {message}")
 
 
 class CustomHelpFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawTextHelpFormatter):
@@ -188,10 +188,45 @@ Description:
     parser_template.formatter_class = CustomHelpFormatter
     parser_template.set_defaults(func=eve_git.templates)
 
-    # SUB-TEMPLATE?
-    sub_template = parser_template.add_subparsers(title='commands', dest='command', metavar="<command>")
-    sub_template_dev = sub_template.add_parser('dev', parents=[common], help='Clone selected repo into current folder')
-    sub_template_dev.add_argument('file', nargs='?', const='templates-eve-git.settings', help='Get eve-git.settings')
+    # # SUB-TEMPLATE?
+    # sub_template = parser_template.add_subparsers(title='commands', dest='command', metavar="<command>")
+    # sub_template_dev = sub_template.add_parser('dev', parents=[common], help='Clone selected repo into current folder')
+    # sub_template_dev.add_argument('file', nargs='?', const='templates-eve-git.settings', help='Get eve-git.settings')
+
+    # PYTHON
+    python_parser = subparsers.add_parser('python', help='Python stuff.', parents=[common])
+    python_parser.formatter_class = CustomHelpFormatter
+    # parser_python.set_defaults(func=eve_git.python)
+    python_subparsers = python_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
+
+    # PYTHON --> VENV
+    python_venv_parser = python_subparsers.add_parser('venv', help='Manipulating with environments', parents=[common])
+    python_venv_parser.formatter_class = CustomHelpFormatter
+    # python_venv_parser.add_argument('new', nargs='?', default='', help='Create new Virtual Environment')
+    # python_venv_parser.add_argument('change', nargs='?', default='', help='Modify Virtual Environment')
+    python_venv_subparsers = python_venv_parser.add_subparsers(title='commands', dest='command', metavar="<command>")
+
+    python_venv_new_parser = python_venv_subparsers.add_parser('new', help='Create new Venv', parents=[common])
+    python_venv_new_parser.formatter_class = CustomHelpFormatter
+    python_venv_new_parser.add_argument('foldername', default='.env', nargs='?', help='Specify folder name')
+    python_venv_new_parser.set_defaults(func=eve_git.python_venv)
+
+    # PYTHON --> TEMPLATE
+    python_template_parser = python_subparsers.add_parser('template', help='Managing templates', parents=[common])
+    python_template_parser.formatter_class = CustomHelpFormatter
+    python_template_parser.add_argument('list', help='List possible python templates to download')
+    python_template_parser.set_defaults(func=eve_git.templates)
+
+    # # PYTHON >>> VENV
+    # sub_python_venv = python_parser.add_subparsers(title='venv', dest='command', metavar="<command>")
+    # parser_python_venv = sub_python_venv.add_parser('new', parents=[common], help='Create new venv')
+    # parser_python_venv.add_argument('name', nargs='?', help='Venv name')
+    # # parser_python_venv.add_argument('pythonversion', nargs='?', help='Python to use (fullpath)')
+
+    # # PYTHON >>> TEMPLATE
+    # sub_python_template = python_parser.add_subparsers(title='template', dest='command', metavar="<command>")
+    # parser_python_template = sub_python_template.add_parser('get', parents=[common], help='Get ma template')
+    # parser_python_template.add_argument('fromlist', nargs='?', help='Select template from list')
 
     # group = parser.add_mutually_exclusive_group()
 
@@ -202,7 +237,6 @@ Description:
         + common.format_help().replace(common.format_usage(), '')
 
     return parser
-
 
 # def required_length(nmin, nmax):
 #     class RequiredLength(argparse.Action):
@@ -215,3 +249,47 @@ Description:
 #             if nmin == 0 and len(values) == 0:
 #                 setattr(args, self.dest, 'empty')
 #     return RequiredLength
+
+
+# eve-git
+#   clone            Clone selected repo into current folder
+#       repository       Repository name
+#       [username]       Specify User/Org (default: None)
+#   list             List remote Repositories. Max 50 items displayed.
+#       [repository]     Help for <repository> (default: )
+#       [username]       Specify User/Org (default: )
+#   list_org         List remote Oranizations. (Admin only)
+#   create           Create remote Repository (and clone it to current dir)
+#       [reponame]       Repository name (default: )
+#       [description]    New repo description (default: TODO: <Write project description>)
+#       [username]       Specify User/Org under which will it be created (default: jverner)
+#   create_org       Create remote Organization
+#       [organization]   Specify Organization (default: )
+#       [description]    Help for <description> (default: TODO: <Write organization description>)
+#       [fullname]       Help for <fullname> (default: )
+#       [visibility]     Help for <visibility> (default: public)
+#   remove           Remove remote Repository
+#   repository     Help for <repository>
+#       [username]       Specify User/Org (default: None)
+#   remove_org       Remove remote Organization. Has to be empty.
+#       [organization]   Specify Organization (default: None)
+#   edit             Edit remote repo Description
+#       repository       Help for <repository>
+#       [username]       Specify User/Org (default: None)
+#   transfer         Transfer repository to different User/Group
+#       [repository]     Specify Repository for transfer (default: )
+#       [username]       Specify User/Org (default: )
+#       [new_owner]      Specify target User/Org (default: )
+#   connect          Connect current repository to remote one
+#       [repository]     Specify Repository to connect to (default: )
+#       [remote_name]    git remote add <remote_name> (default: gitea)
+#   deploy           Deploy selected repository to production
+#   repository     Repository name
+#       [username]       Specify User/Org (default: None)
+#       [branch]         Branch to deploy (default: master)
+#   template         Choose one of the templates and copy here.
+#   python           Python stuff.
+#       venv           Manipulating with environments
+#           new            Create new Virtual Environment
+#       template       Managing templates
+#           list           List possible python templates to download

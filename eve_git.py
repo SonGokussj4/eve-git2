@@ -841,7 +841,7 @@ def list_org(args):
 def list_repo(args):
     """Function for listing directories."""
     log.debug(f"Listing repository.")
-    tbl = utl.get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
+    tbl = utls.get_repo_list_as_table(args.session, SERVER, args.repository, args.username)
     print(tbl)
     return
 
@@ -1094,6 +1094,19 @@ def templates(args):
     return
 
 
+def python_venv(args):
+    print(f'args: {args}')
+    if args.command == 'new':
+        print("Creating new VENV")
+        cmd = f'python3.7eve -m venv .env'
+        log.debug(f"cmd: '{cmd}'")
+        utls.ask_confirm("Ya sure?")
+        os.system(cmd)
+
+    elif args.command == 'modify':
+        print("Modifying VENV")
+
+
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
@@ -1126,4 +1139,12 @@ if __name__ == '__main__':
         raise SystemExit
 
     # React on user inputted command/arguments
+    try:
+        func = args.func
+    except AttributeError:
+        # import pathlib
+        # scriptname = pathlib.PurePath(sys.argv[0]).name
+        scriptname = sys.argv[0]
+        parser.error(f"Too few arguments. Try help: 'eve-git {' '.join(sys.argv[1:])} -h'")
+
     args.func(args)
