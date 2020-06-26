@@ -1104,12 +1104,42 @@ def python_venv(args):
         print("Modifying VENV")
 
 
+def show_big_help(args):
+    """Show visually better help tree."""
+    import argparse
+    parser.print_help()
+
+    print("\n---------- Sub-arguments Details ----------")
+    subparsers_actions = [
+        action for action in args.parser._actions
+        if isinstance(action, argparse._SubParsersAction)]
+    # there will probably only be one subparser_action, but better save than sorry
+    for subparsers_action in subparsers_actions:
+        # get all subparsers and print help
+        for choice, subparser in subparsers_action.choices.items():
+            print("\n {}".format(choice))
+            # print(subparser.format_help())
+            lines = [
+                f'   {line}' for line in subparser.format_help().split('\n')
+                if '-h, --help' not in line
+                if '--version' not in line
+                if 'Verbal' not in line
+                if 'optional arguments' not in line
+                if 'usage: ' not in line
+                if line
+                # if 'commands:' not in line
+            ]
+            lines = '\n'.join(lines)
+            print(lines)
+
+
 # ====================================
 # =           MAIN PROGRAM           =
 # ====================================
 if __name__ == '__main__':
     parser = cli.get_parser()
     args = parser.parse_args()
+    args.parser = parser
 
     console = logging.StreamHandler(sys.stdout)
 
@@ -1135,6 +1165,10 @@ if __name__ == '__main__':
         update_token(args)
         raise SystemExit()
 
+    if args.bighelp is not None:
+        show_big_help(args)
+        raise SystemExit()
+
     # React on user inputted command/arguments
     try:
         func = args.func
@@ -1144,5 +1178,4 @@ if __name__ == '__main__':
         scriptname = sys.argv[0]
         parser.error(f"Too few arguments. Try help: 'eve-git {' '.join(sys.argv[1:])} -h'")
 
-    args.parser = parser
     args.func(args)

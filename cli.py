@@ -1,7 +1,6 @@
 """Command Line Interface (CLI) Class"""
 
 import argparse
-# import utils
 import eve_git  # circular import...
 import getpass
 from colorama import Style, Fore
@@ -12,7 +11,7 @@ from colorama import Style, Fore
 # =================================
 __author__ = "Jan Verner"
 __email__ = "jverner@"
-__date__ = "2020-02-07"
+__date__ = "2020-06-26"
 __version__ = "v0.0.0"
 
 
@@ -93,8 +92,8 @@ Description:
 
 """
     # OPTIONS
-    parser.add_argument('--token', nargs='?', default=None, const='',
-                        help='Add or Update your GITEA_TOKEN')
+    parser.add_argument('--token', nargs='?', default=None, const='', help='Add or Update your GITEA_TOKEN')
+    parser.add_argument('--bighelp', action='store_true', help='Show every possible command')
 
     # ==================================
     # =           SUBPARSERS           =
