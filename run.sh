@@ -33,6 +33,14 @@ if [[ CUSTOM_LD_LIBRARY != "" ]]; then
     export LD_LIBRARY_PATH=${CUSTOM_LD_LIBRARY}:$LD_LIBRARY_PATH
 fi
 
-## ACTIVATE VIRTUAL ENVIRONMENT AND RUN APP
+## ACTIVATE VIRTUAL ENVIRONMENT
 source "$SCRIPTDIR"/${VENV_NAME}/bin/activate
-python "$SCRIPTDIR"/${MAIN_FILE} "$@"
+
+## RUN APP
+if [ -f "$SCRIPTDIR/${MAIN_FILE}" ]; then
+    python "$SCRIPTDIR"/${MAIN_FILE} "$@"
+elif [ -f "$SCRIPTDIR/$(basename $SCRIPTDIR)/${MAIN_FILE}" ]; then
+    python "$SCRIPTDIR/$(basename $SCRIPTDIR)/${MAIN_FILE}" "$@"
+else
+    echo "[ ERROR ] run.sh couldn't find ${MAIN_FILE} neiter in base dir or in module dir"
+fi

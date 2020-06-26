@@ -144,7 +144,7 @@ def deploy_conf_params(filepath: Path) -> dict:
 
 
 def download(url: str, filepath):
-    """Docu."""
+    """Download file from 'url' into 'filepath' destination."""
     if type(filepath) == 'str':
         filepath = Path(filepath)
 
@@ -210,6 +210,7 @@ def lineno(msg: str = None) -> str:
 
 def requirements_similar(src_requirements: any, dst_requirements: any) -> bool:
     """Return True if both src_req and dst_req have the same content.
+
     Arguments:
         src_requirements [Path or str]: First file to compare
         dst_requirements [Path or str]: Second file to compare
@@ -229,7 +230,7 @@ def requirements_similar(src_requirements: any, dst_requirements: any) -> bool:
     return filecmp.cmp(src_requirements, dst_requirements)
 
 
-def lsremote(url):
+def lsremote(url: str) -> dict:
     """Get references ('HEAD', 'refs/heads/<branch>') from remote <url> repo."""
     remote_refs = {}
     g = git.cmd.Git()
@@ -240,8 +241,13 @@ def lsremote(url):
 
 
 def list_remote_branches(url: str) -> list:
-    """Return list of branches from remote repository."""
-    # GITEA API: /repos/{owner}/{repo}/branches
+    """Return list of branches from remote repository.
+
+    Using Gitea API:
+        https://{server}/api/v1/repos/{owner}/{reponame}/branches
+
+    """
+    # TODO: GITEA API: /repos/{owner}/{repo}/branches
     refs = lsremote(url)
     branches = []
     for key, val in refs.items():

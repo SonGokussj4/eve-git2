@@ -299,7 +299,7 @@ def deploy(args):
             if not answer else True
         },
         {
-            'message': "User/Org:",
+            'message': "Owner (User/Org):",
             'default': args.username,
             'name': 'username',
             'type': 'input',

@@ -16,7 +16,7 @@ Description:
 optional arguments:
   -h, --help       show this help message and exit
   -v               Verbal (default: None)
-  -V, --version    show program's version number and exit
+  -V, --version    show program version number and exit
   --token [TOKEN]  Add or Update your GITEA_TOKEN (default: None)
   --bighelp        Show every possible command (default: False)
 
@@ -35,7 +35,7 @@ commands:
 --- Arguments common to all sub-parsers ---
 optional arguments:
   -v             Verbal
-  -V, --version  show program's version number and exit
+  -V, --version  show program version number and exit
 
 ---------- Sub-arguments Details ----------
 
