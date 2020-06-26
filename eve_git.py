@@ -471,12 +471,12 @@ def deploy(args):
 
 def connect_here(args):
     log.info(f"Connecting remote repository with this one (local)")
-    if not is_git_repo(CURDIR):
+    if not utls.is_git_repo(CURDIR):
         msg = f"Current location is not git repository: '{CURDIR.resolve()}'"
         log.critical(msg)
-        raise Exception(msg)
+        raise SystemExit()
 
-    selected = select_repo_from_list(
+    selected = utls.select_repo_from_list(
         session=args.session,
         server=SERVER,
         repository=args.repository,
@@ -484,7 +484,7 @@ def connect_here(args):
     )
     log.debug(f"selected: {selected}")
 
-    check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
+    utls.check_user_repo_exist(SERVER, selected.repository, selected.username, args.session)
 
     new_url = f'{SERVER}/{selected.username}/{selected.repository}'
     log.info(f"Connecting '{new_url}'")
@@ -494,7 +494,8 @@ def connect_here(args):
     # Case repo is missing remote, add 'gitea'
     if len(repo.remotes) == 0:
         repo.create_remote('gitea', new_url)
-        log.info(f"Done (Created new 'gitea' remote)")
+        log.info(f"Created new 'gitea' remote")
+        log.info(f"Done")
         return
 
     # Case repo has already some remotes. Go through them, if any 'gitea', ask for rewrite. Add otherwise.
@@ -524,7 +525,8 @@ def connect_here(args):
 
     log.debug(f"Neither of the repositories was named 'gitea', adding a new one.")
     repo.create_remote('gitea', new_url)
-    log.info(f"Done (Added new 'gitea' remote)")
+    log.info(f"Added new 'gitea' remote")
+    log.info(f"Done")
     return
 
 

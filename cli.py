@@ -182,17 +182,17 @@ Description:
     parser_edit.set_defaults(func=eve_git.edit_desc)
 
     # -----------  TRANSFER  -----------
-    parser_transfer = subparsers.add_parser('transfer', help='Transfer repository to different User/Group', parents=[common])
+    parser_transfer = subparsers.add_parser('transfer', help='Transfer repository to different owner (User/Org)', parents=[common])
     parser_transfer.add_argument('repository', nargs='?', default='', help='Specify Repository for transfer')
-    parser_transfer.add_argument('username', nargs='?', default='', help='Specify User/Org')
-    parser_transfer.add_argument('new_owner', nargs='?', default='', help='Specify target User/Org')
+    parser_transfer.add_argument('username', nargs='?', default='', help='Specify owner (User/Org)')
+    parser_transfer.add_argument('new_owner', nargs='?', default='', help='Specify target owner (User/Org)')
     parser_transfer.formatter_class = CustomHelpFormatter
     parser_transfer.set_defaults(func=eve_git.transfer_repo)
 
     # -----------  CONNECT  -----------
     parser_connect = subparsers.add_parser('connect', help='Connect current repository to remote one', parents=[common])
-    parser_connect.add_argument('repository', nargs='?', default='', help='Specify Repository to connect to')
-    parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='git remote add <remote_name>')
+    parser_connect.add_argument('repository', nargs='?', default='', help='Specify repository name to connect to')
+    parser_connect.add_argument('remote_name', nargs='?', default='gitea', help='Specify new <remote_name>')
     parser_connect.formatter_class = CustomHelpFormatter
     parser_connect.set_defaults(func=eve_git.connect_here)
 
