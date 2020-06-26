@@ -1165,7 +1165,7 @@ if __name__ == '__main__':
         update_token(args)
         raise SystemExit()
 
-    if args.bighelp is not None:
+    if args.bighelp is True:
         show_big_help(args)
         raise SystemExit()
 
