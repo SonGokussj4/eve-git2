@@ -267,7 +267,72 @@ def init_session(args):
     return session
 
 
+def undeploy(args):
+    """Undeploy program from Script and Bin folder."""
+    log.info(f"Undeploying...")
+    selected = utls.select_repo_from_list(
+        args.session, SERVER, args.repository, args.username, 'Select repository to deploy')
+
+    args.repository = selected.repository
+    args.username = selected.username
+
+    remove_items: list[Path] = []
+
+    target_dir = SKRIPTY_DIR / args.repository
+    log.debug(f"Checking for '{target_dir}'")
+    if not target_dir.exists():
+        log.error(f"Target dir '{target_dir}' not found. Aborting.")
+        raise SystemExit()
+    log.debug("Script directory found")
+    remove_items.append(target_dir)
+
+    # Load deploy.conf from project root directory
+    app_conf_filepath = target_dir / 'deploy.conf'
+    log.debug(f"Checking for '{app_conf_filepath}'")
+    if not app_conf_filepath.exists():
+        log.error(f"Target dir '{target_dir}' does not have 'deploy.conf' file. Aborting")
+        raise SystemExit()
+    log.debug(f"'{app_conf_filepath}' found. Loading config.")
+
+    app_conf = utls.deploy_conf_params(app_conf_filepath)
+
+    if app_conf.links:
+        for link_name in app_conf.links.values():
+            link_fullpath = Path(f'{SKRIPTY_EXE}/{link_name}')
+            if link_fullpath.exists():
+                remove_items.append(link_fullpath)
+
+    # Ask user if he's certain to undeploy
+    log.warning("This will remove following files/links/folders")
+    for item in remove_items:
+        if item.is_dir():
+            log.info(f"  Directory: '{item}'")
+        elif item.is_symlink():
+            log.info(f"  Symlink: '{item}'")
+        elif item.is_file():
+            log.info(f"  File: '{item}'")
+        else:
+            log.info(f"  Unknown type: '{item}'")
+
+    # log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    ask_confirm(f"Are you SURE?")
+
+    for item in remove_items:
+        cmd = f'ssh {SKRIPTY_SERVER} "rm -rf {item}"'
+        log.debug(f"Executing command: '{cmd}'")
+        res = os.system(cmd)
+        print(f'res: {res}')
+        log.debug(f"'{item}' removed.")
+
+    log.info("Undeployment done")
+
+
 def deploy(args):
+    """Deploy program to Script and Bin folder."""
+    if args.undeploy is True:
+        undeploy(args)
+        return
+
     log.info(f"Deploying...")
     selected = utls.select_repo_from_list(
         args.session, SERVER, args.repository, args.username, 'Select repository to deploy')
@@ -343,13 +408,13 @@ def deploy(args):
     # Load deploy.conf from project root directory
     log.debug(f"Checking for 'deploy.conf'")
     app_conf_filepath = tmp_dir / 'deploy.conf'
-    # app_conf_filepath = Path('/ST/Evektor/UZIV/JVERNER/PROJEKTY/GIT/jverner/dochazka2/deploy.conf')
+
     ignore_venv = True
 
     if app_conf_filepath.exists():
         log.debug(f"'{app_conf_filepath}' found. Loading config.")
 
-        app_conf = utls.deploy_conf_params(app_conf_filepath)
+        app_conf: utls.AppConfig = utls.deploy_conf_params(app_conf_filepath)
         if app_conf:
             log.info("========== deploy.conf parameters ==========")
             log.info("")
@@ -366,8 +431,19 @@ def deploy(args):
             log.info("")
             log.info("========== deploy.conf parameters ==========")
 
+    log.info("Summary:")
     # Ask user if he's certain to deploy
-    log.info(f"Deploying {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+    log.info(f"  - Deploying:  {BYel}{url}{RCol} [{BRed}{args.branch}{RCol}] into {BYel}{target_dir}{RCol}")
+
+    if app_conf.links:
+        for filename, linkname in app_conf.links.items():
+            link_fullpath = Path(f'{SKRIPTY_EXE}/{linkname}')
+            log.info(f"  - Linking:    {BYel}{filename}{RCol} --> {BYel}{link_fullpath}{RCol}")
+
+    if app_conf.executables:
+        for filename in app_conf.executables:
+            log.info(f"  - Executable: {BYel}{filename}{RCol}")
+
     ask_confirm(f"Are you SURE?")
 
     # Make all files in root folder non-executable
@@ -412,7 +488,7 @@ def deploy(args):
             os.system(cmd)
 
             # Pip install
-            log.info(f"Running Pip install")
+            log.info(f"Running Pip install from 'requirements.txt'")
             cmd = f'{tmp_dir}/.env/bin/pip install -r {tmp_dir}/requirements.txt'
             log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
@@ -426,15 +502,16 @@ def deploy(args):
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
             cmd = f'ssh {SKRIPTY_SERVER} "mkdir {target_dir}"'
-            os.system(cmd)
-            log.debug(f"{target_dir} created.")
+            ret = os.system(cmd)
+            log.debug(f"{target_dir} created.") if ret == 0 else log.error(f"{target_dir} couldn't be created.")
 
         # Make symbolic link(s)
         for key, val in app_conf.links.items():
             src_filepath = target_dir / key
             dst_filepath = SKRIPTY_EXE / val
             log.info(f"Linking '{src_filepath}' --> '{dst_filepath}'")
-            make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
+            success = make_symbolic_link(src_filepath, dst_filepath, SKRIPTY_SERVER)
+            log.debug(f"Link created") if success else log.error(f"Link couldn't be created.")
 
     # Case deploy.conf file was not found in project
     else:

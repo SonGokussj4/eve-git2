@@ -123,7 +123,17 @@ def addLogLevel(levelName, level):
 
 
 def deploy_conf_params(filepath: Path) -> dict:
-    """Docstring."""
+    """Return dictionary of key-value pairs from 'deploy.conf' file.
+
+    Keys:
+        framework   (str)   'python3.7eve'
+        links       (dict)  {'run.sh': 'eve-git2', ...}
+        executables (list)  ['run.sh', ...]
+        create_venv (bool)  True
+        venv_name   (str)   '.env'
+        main_file   (str)   'eve_git.py'
+        ld_lib      (str)   '/expSW/.../var/LD_LIBRARIES'
+    """
     config = configparser.ConfigParser(allow_no_value=True)
     config.read(filepath)
     deploy_conf = AppConfig(config)
@@ -347,7 +357,8 @@ def check_org_exist(server: str, organization: str, session) -> bool:
     return True
 
 
-def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str = ''):
+def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str = '') -> bool:
+    """Link file to symlink, FORCEFULLY, depending on OS (Linux/Windows)."""
     if type(src_filepath) == 'str':
         src_filepath = Path(src_filepath)
     if type(dst_filepath) == 'str':
@@ -360,8 +371,10 @@ def make_symbolic_link(src_filepath: str, dst_filepath: str, remote_server: str 
         # powershell
         # cmd = f'''powershell.exe new-item -ItemType SymbolicLink -path {SKRIPTY_EXE} -name {val} -value {link_src}'''
     log.debug(f"cmd: '{cmd}'")
-    os.system(cmd)
-    return True
+    res = os.system(cmd)
+    if res == 0:
+        return True
+    return False
 
 
 def is_git_repo(path: any) -> bool:
@@ -746,6 +759,7 @@ def select_org_from_list(session, server, question):
 
 
 def ask_confirm(msg):
+    """Ask for confirmation, if empty or negative answer, stop program."""
     questions = [
         {
             'message': msg,

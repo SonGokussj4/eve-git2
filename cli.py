@@ -201,6 +201,7 @@ Description:
     parser_deploy.add_argument('repository', help='Repository name')
     parser_deploy.add_argument('username', nargs='?', help='Specify User/Org')
     parser_deploy.add_argument('branch', nargs='?', default='master', help='Branch to deploy')
+    parser_deploy.add_argument('--undeploy', action='store_true', help='Undeploy (remove from Scripts/Bin)')
     parser_deploy.formatter_class = CustomHelpFormatter
     parser_deploy.set_defaults(func=eve_git.deploy)
 
