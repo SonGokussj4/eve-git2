@@ -4,6 +4,8 @@
 # TODO: Prepracovat toto vsechno (dlouhodoby TODO) do Classy...
 # TODO: dodelat cli: --undeploy, kde to vycisti system
 
+# TODO: Pri vyberu TEMPLATE udelat checkbox a mit moznost toho stahnout vic, popr auto prejmenovat na 'bez .template'
+
 # =================================
 # =           LIBRARIES           =
 # =================================
@@ -498,6 +500,9 @@ def deploy(args):
             cmd = f'find {tmp_dir} -exec sed -i s@{tmp_dir}/.env@{target_dir}/.env@g {{}} \\; 2>/dev/null'
             log.debug(f"cmd: '{cmd}'")
             os.system(cmd)
+
+            # TODO Tady se zeptat, zda chce stahnout template run.sh a udelat ho chmod +x
+            # TODO ... Nebo nekde...
 
         # Check if <reponame> already exists in /expSW/SOFTWARE/skripty/<reponame>
         if not target_dir.exists():
